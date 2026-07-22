@@ -1,96 +1,93 @@
-> **Note:** This repository contains Anthropic's implementation of skills for Claude. For information about the Agent Skills standard, see [agentskills.io](http://agentskills.io).
+# دستیار هوشمند تلگرام برای مطب / کلینیک
 
-[![skills.sh](https://skills.sh/b/anthropics/skills)](https://skills.sh/anthropics/skills)
+این ربات به‌صورت خودکار:
+- به پیام‌های بیمارها با هوش مصنوعی (Claude) جواب می‌ده
+- قیمت و لیست خدمات رو از یک گوگل‌شیت می‌خونه و اعلام می‌کنه
+- وقتی بیمار نوبت می‌خواد، ساعت‌های خالی رو چک می‌کنه، درخواست نوبت رو در شیت ثبت می‌کنه (وضعیت «در انتظار تایید»)
+- به شما (ادمین) در تلگرام با دکمه‌ی ✅ تایید / ❌ رد اطلاع می‌ده
+- به محض تایید یا رد شما، خودکار به بیمار پیام نتیجه رو می‌فرسته
 
-# Skills
-Skills are folders of instructions, scripts, and resources that Claude loads dynamically to improve performance on specialized tasks. Skills teach Claude how to complete specific tasks in a repeatable way, whether that's creating documents with your company's brand guidelines, analyzing data using your organization's specific workflows, or automating personal tasks.
+## پیش‌نیازها
 
-For more information, check out:
-- [What are skills?](https://support.claude.com/en/articles/12512176-what-are-skills)
-- [Using skills in Claude](https://support.claude.com/en/articles/12512180-using-skills-in-claude)
-- [How to create custom skills](https://support.claude.com/en/articles/12512198-creating-custom-skills)
-- [Equipping agents for the real world with Agent Skills](https://anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
+1. **Node.js نسخه ۱۸ به بالا** روی سیستمی که ربات رو اجرا می‌کنید.
+2. **توکن ربات تلگرام** — از [@BotFather](https://t.me/BotFather) با دستور `/newbot` بسازید.
+3. **کلید API آنتروپیک (Claude)** — از [console.anthropic.com](https://console.anthropic.com) بسازید.
+4. **یک گوگل‌شیت** برای خدمات و نوبت‌ها.
+5. **Service Account گوگل** برای دسترسی برنامه به شیت (رایگان، نیازی به کارت بانکی نیست).
 
-# About This Repository
+## مرحله ۱: ساخت گوگل‌شیت
 
-This repository contains skills that demonstrate what's possible with Claude's skills system. These skills range from creative applications (art, music, design) to technical tasks (testing web apps, MCP server generation) to enterprise workflows (communications, branding, etc.).
+یک Google Sheet جدید بسازید و دو تب (Sheet) داخلش درست کنید:
 
-Each skill is self-contained in its own folder with a `SKILL.md` file containing the instructions and metadata that Claude uses. Browse through these skills to get inspiration for your own skills or to understand different patterns and approaches.
+### تب اول: `Services`
+ردیف اول (هدر) رو همینطوری بنویسید و از ردیف دوم به بعد خدمات رو وارد کنید:
 
-Many skills in this repo are open source (Apache 2.0). We've also included the document creation & editing skills that power [Claude's document capabilities](https://www.anthropic.com/news/create-files) under the hood in the [`skills/docx`](./skills/docx), [`skills/pdf`](./skills/pdf), [`skills/pptx`](./skills/pptx), and [`skills/xlsx`](./skills/xlsx) subfolders. These are source-available, not open source, but we wanted to share these with developers as a reference for more complex skills that are actively used in a production AI application.
+| A (نام خدمت) | B (قیمت) | C (مدت به دقیقه) | D (توضیح) |
+|---|---|---|---|
+| ویزیت عمومی | ۳۰۰,۰۰۰ تومان | 20 | |
+| مشاوره تخصصی | ۵۰۰,۰۰۰ تومان | 30 | |
 
-## Disclaimer
+### تب دوم: `Bookings`
+این تب رو خالی بذارید — ربات خودش موقع اولین اجرا هدر و ردیف‌های نوبت‌ها رو داخلش می‌نویسه.
 
-**These skills are provided for demonstration and educational purposes only.** While some of these capabilities may be available in Claude, the implementations and behaviors you receive from Claude may differ from what is shown in these skills. These skills are meant to illustrate patterns and possibilities. Always test skills thoroughly in your own environment before relying on them for critical tasks.
+نام تب‌ها باید دقیقاً `Services` و `Bookings` باشه (حروف بزرگ/کوچک مهمه).
 
-# Skill Sets
-- [./skills](./skills): Skill examples for Creative & Design, Development & Technical, Enterprise & Communication, and Document Skills
-- [./spec](./spec): The Agent Skills specification
-- [./template](./template): Skill template
-
-# Try in Claude Code, Claude.ai, and the API
-
-## Claude Code
-You can register this repository as a Claude Code Plugin marketplace by running the following command in Claude Code:
+**Spreadsheet ID** رو از آدرس شیت کپی کنید؛ قسمتی از URL که بین `/d/` و `/edit` هست:
 ```
-/plugin marketplace add anthropics/skills
-```
-
-Then, to install a specific set of skills:
-1. Select `Browse and install plugins`
-2. Select `anthropic-agent-skills`
-3. Select `document-skills` or `example-skills`
-4. Select `Install now`
-
-Alternatively, directly install either Plugin via:
-```
-/plugin install document-skills@anthropic-agent-skills
-/plugin install example-skills@anthropic-agent-skills
+https://docs.google.com/spreadsheets/d/AAAA_ID_INJA_HAST_BBBB/edit
 ```
 
-After installing the plugin, you can use the skill by just mentioning it. For instance, if you install the `document-skills` plugin from the marketplace, you can ask Claude Code to do something like: "Use the PDF skill to extract the form fields from `path/to/some-file.pdf`"
+## مرحله ۲: ساخت Service Account گوگل
 
-## Claude.ai
+1. به [Google Cloud Console](https://console.cloud.google.com/) برید و یک پروژه بسازید (یا از پروژه موجود استفاده کنید).
+2. از منو، **APIs & Services > Library** برید، دنبال **Google Sheets API** بگردید و **Enable** کنید.
+3. به **APIs & Services > Credentials** برید، **Create Credentials > Service Account** رو بزنید و یک اسم دلخواه بدید.
+4. بعد از ساخت، وارد اون Service Account بشید، تب **Keys > Add Key > Create new key**، نوع **JSON** رو انتخاب کنید — یک فایل JSON دانلود می‌شه.
+5. ایمیل Service Account (چیزی شبیه `xxx@yyy.iam.gserviceaccount.com`) رو کپی کنید.
+6. برگردید توی گوگل‌شیتی که ساختید، دکمه **Share** رو بزنید و همون ایمیل رو با دسترسی **Editor** اضافه کنید.
 
-These example skills are all already available to paid plans in Claude.ai. 
+## مرحله ۳: تنظیم فایل `.env`
 
-To use any skill from this repository or upload custom skills, follow the instructions in [Using skills in Claude](https://support.claude.com/en/articles/12512180-using-skills-in-claude#h_a4222fa77b).
+فایل `.env.example` رو کپی کنید و اسمش رو بذارید `.env`، بعد مقادیر رو پر کنید:
 
-## Claude API
-
-You can use Anthropic's pre-built skills, and upload custom skills, via the Claude API. See the [Skills API Quickstart](https://docs.claude.com/en/api/skills-guide#creating-a-skill) for more.
-
-# Creating a Basic Skill
-
-Skills are simple to create - just a folder with a `SKILL.md` file containing YAML frontmatter and instructions. You can use the **template-skill** in this repository as a starting point:
-
-```markdown
----
-name: my-skill-name
-description: A clear description of what this skill does and when to use it
----
-
-# My Skill Name
-
-[Add your instructions here that Claude will follow when this skill is active]
-
-## Examples
-- Example usage 1
-- Example usage 2
-
-## Guidelines
-- Guideline 1
-- Guideline 2
+```bash
+cp .env.example .env
 ```
 
-The frontmatter requires only two fields:
-- `name` - A unique identifier for your skill (lowercase, hyphens for spaces)
-- `description` - A complete description of what the skill does and when to use it
+- `TELEGRAM_BOT_TOKEN`: توکنی که از BotFather گرفتید
+- `ADMIN_CHAT_ID`: چت‌آیدی عددی خودتون (برای گرفتنش، به ربات [@userinfobot](https://t.me/userinfobot) پیام بدید)
+- `ANTHROPIC_API_KEY`: کلید API که از console.anthropic.com گرفتید
+- `SPREADSHEET_ID`: همون آی‌دی شیت که بالا گفتیم
+- `GOOGLE_SERVICE_ACCOUNT_JSON`: **کل محتوای فایل JSON** که دانلود کردید رو به‌صورت یک خط (تمام رشته JSON) اینجا بچسبونید
+- `CLINIC_NAME`, `CLINIC_TIMEZONE`, `CLINIC_OPEN_HOUR`, `CLINIC_CLOSE_HOUR`, `SLOT_MINUTES`, `CLINIC_WORK_DAYS`: تنظیمات ساعت کاری مطب (مقادیر پیش‌فرض داخل `.env.example` قابل تغییرن)
 
-The markdown content below contains the instructions, examples, and guidelines that Claude will follow. For more details, see [How to create custom skills](https://support.claude.com/en/articles/12512198-creating-custom-skills).
+## مرحله ۴: اجرای محلی (تست)
 
-# Partner Skills
+```bash
+npm install
+npm start
+```
 
-Skills are a great way to teach Claude how to get better at using specific pieces of software. As we see awesome example skills from partners, we may highlight some of them here:
+اگر همه‌چیز درست باشه پیام `Clinic Telegram assistant is running...` رو می‌بینید. حالا برید تو تلگرام با ربات خودتون چت کنید و تست کنید.
 
-- **Notion** - [Notion Skills for Claude](https://www.notion.so/notiondevs/Notion-Skills-for-Claude-28da4445d27180c7af1df7d8615723d0)
+## مرحله ۵: هاست دائمی (چون هنوز سروری ندارید)
+
+ساده‌ترین و ارزون‌ترین راه برای شروع، **Railway** یا **Render** هست (نیاز به سرور/دامنه ندارن، چون ربات به روش polling کار می‌کنه نه webhook):
+
+### با Railway
+1. کد رو به یک ریپازیتوری گیت‌هاب پوش کنید.
+2. توی [railway.app](https://railway.app) ثبت‌نام کنید و **New Project > Deploy from GitHub repo** رو بزنید.
+3. ریپازیتوری رو انتخاب کنید.
+4. توی تنظیمات پروژه (**Variables**)، تمام مقادیر داخل `.env` رو یکی‌یکی اضافه کنید (به‌جای فایل `.env`).
+5. Railway خودش `npm install` و `npm start` رو اجرا می‌کنه. اگر نیاز بود دستی ست کنید: Start Command = `npm start`.
+
+### با Render
+همین مراحل رو با یک **Background Worker** (نه Web Service، چون این ربات وب‌سرور HTTP نداره) توی [render.com](https://render.com) انجام بدید.
+
+بعد از دیپلوی، پردازش به‌صورت ۲۴ ساعته روشن می‌مونه و به پیام‌های تلگرام گوش می‌ده.
+
+## محدودیت‌های نسخه فعلی (قابل توسعه در آینده)
+
+- تاریخچه‌ی مکالمه‌ی هر کاربر فقط توی حافظه‌ی برنامه نگه‌داری می‌شه؛ با ری‌استارت شدن پروسه پاک می‌شه.
+- بررسی نوبت‌های خالی ساده است (بر اساس ساعت کاری و نوبت‌های ثبت‌شده در شیت)، تداخل هم‌زمان (race condition) در حجم بالا مدیریت نشده.
+- برای امنیت بیشتر می‌تونید کنترل کنید که فقط بیمارهای شناخته‌شده بتونن پیام بدن یا لاگ مکالمات رو هم ذخیره کنید.

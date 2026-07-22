@@ -1,0 +1,17 @@
+{
+  "name": "clinic-telegram-assistant",
+  "version": "1.0.0",
+  "description": "Telegram AI assistant for a medical clinic: answers patient questions, quotes prices from Google Sheets, and books appointments with admin approval.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "dotenv": "^16.4.5",
+    "googleapis": "^144.0.0",
+    "grammy": "^1.30.0",
+    "luxon": "^3.5.0"
+  }
+}
