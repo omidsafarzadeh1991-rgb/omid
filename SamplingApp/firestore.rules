@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // A patient creates their own profile once, on first sign-in; role is always PATIENT.
+      allow create: if isSignedIn() && request.auth.uid == userId
+                    && request.resource.data.role == 'PATIENT';
+      // Only an admin (promoted manually in the Firebase console) can change roles.
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /requests/{requestId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.patientId == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.patientId == request.auth.uid
+                    && request.resource.data.status == 'PENDING';
+      // Only an admin may confirm/reject/mark-done; a patient can never edit after creation.
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+  }
+}

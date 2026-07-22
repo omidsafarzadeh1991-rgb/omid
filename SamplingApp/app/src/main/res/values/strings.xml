@@ -1,0 +1,53 @@
+<resources>
+    <string name="app_name">نمونه‌گیری در محل</string>
+
+    <!-- Auth -->
+    <string name="enter_phone_title">ورود به برنامه</string>
+    <string name="phone_hint">شماره موبایل (مثلاً 09121234567)</string>
+    <string name="send_code">ارسال کد</string>
+    <string name="otp_title">کد تأیید را وارد کنید</string>
+    <string name="otp_sent_to">کد پیامک شده به %1$s را وارد کنید</string>
+    <string name="verify_code">تأیید کد</string>
+    <string name="resend_code">ارسال مجدد کد</string>
+    <string name="invalid_phone">شماره موبایل معتبر نیست</string>
+    <string name="enter_name_title">نام و نام خانوادگی</string>
+    <string name="name_hint">نام کامل خود را وارد کنید</string>
+    <string name="save_continue">ذخیره و ادامه</string>
+
+    <!-- Patient -->
+    <string name="my_requests">درخواست‌های من</string>
+    <string name="new_request">درخواست جدید</string>
+    <string name="request_address">آدرس نمونه‌گیری</string>
+    <string name="pick_on_map">انتخاب روی نقشه</string>
+    <string name="note_optional">توضیحات (اختیاری)</string>
+    <string name="submit_request">ثبت درخواست</string>
+    <string name="no_requests_yet">هنوز درخواستی ثبت نکرده‌اید</string>
+    <string name="request_submitted">درخواست شما با موفقیت ثبت شد</string>
+
+    <!-- Status -->
+    <string name="status_pending">در انتظار تأیید</string>
+    <string name="status_confirmed">تأیید شده</string>
+    <string name="status_rejected">رد شده</string>
+    <string name="status_done">انجام شده</string>
+
+    <!-- Admin -->
+    <string name="pending_requests">درخواست‌های در انتظار</string>
+    <string name="all_requests">همه درخواست‌ها</string>
+    <string name="confirm_request">تأیید درخواست</string>
+    <string name="reject_request">رد درخواست</string>
+    <string name="mark_done">انجام شد</string>
+    <string name="no_pending_requests">در حال حاضر درخواستی در انتظار نیست</string>
+    <string name="request_details">جزئیات درخواست</string>
+
+    <!-- Map -->
+    <string name="map_pick_instruction">روی نقشه لمس کنید تا آدرس انتخاب شود</string>
+    <string name="use_my_location">موقعیت من</string>
+    <string name="confirm_address">تأیید آدرس</string>
+    <string name="location_permission_needed">برای نمایش موقعیت شما به مجوز دسترسی به موقعیت مکانی نیاز است</string>
+
+    <!-- Common -->
+    <string name="loading">در حال بارگذاری…</string>
+    <string name="error_generic">خطایی رخ داد. دوباره تلاش کنید.</string>
+    <string name="logout">خروج از حساب</string>
+    <string name="back">بازگشت</string>
+</resources>
