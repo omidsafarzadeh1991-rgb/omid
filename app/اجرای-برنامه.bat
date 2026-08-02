@@ -1,6 +1,15 @@
 @echo off
 cd /d %~dp0
 
+echo به‌روزرسانی دیتابیس (در صورت نیاز)...
+call npx prisma migrate deploy
+if errorlevel 1 (
+  echo.
+  echo مشکلی در آماده‌سازی دیتابیس پیش آمد. متن بالا را برای بررسی نگه دارید.
+  pause
+  exit /b 1
+)
+
 if not exist ".next" (
   echo آماده‌سازی اولیه برنامه، چند دقیقه طول می‌کشد، لطفاً صبر کنید...
   call npm run build
