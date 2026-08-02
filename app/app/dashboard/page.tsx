@@ -143,6 +143,7 @@ export default async function DashboardPage() {
                       timeStyle: "short",
                     }).format(appt.startTime)}{" "}
                     · {SOURCE_LABELS[appt.source] ?? appt.source}
+                    {appt.serviceName && <> · {appt.serviceName}</>}
                   </p>
                 </div>
                 <form

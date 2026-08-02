@@ -16,6 +16,17 @@ export type Slot = {
 
 const PRISMA_UNIQUE_CONSTRAINT_ERROR = "P2002";
 
+export function parseWorkDays(workDays: string): number[] {
+  return workDays
+    .split(",")
+    .map((d) => Number(d.trim()))
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+}
+
+function isWorkingDay(doctor: Doctor, day: Date): boolean {
+  return parseWorkDays(doctor.workDays).includes(day.getDay());
+}
+
 /** Generates every slot for a doctor's working hours on a given calendar day. */
 function generateDaySlotTimes(doctor: Doctor, day: Date): Date[] {
   const dayStart = new Date(day);
@@ -41,6 +52,10 @@ export async function getSlotsForDay(
   const doctor = await prisma.doctor.findFirstOrThrow({
     where: { id: doctorId, clinicId },
   });
+
+  if (!isWorkingDay(doctor, day)) {
+    return [];
+  }
 
   const dayStart = new Date(day);
   dayStart.setHours(0, 0, 0, 0);
@@ -68,6 +83,7 @@ export type BookAppointmentInput = {
   startTime: Date;
   patientName: string;
   patientPhone: string;
+  serviceName?: string;
   source: AppointmentSource;
   actorStaffId?: string;
 };
@@ -88,6 +104,10 @@ export async function bookAppointment(
   const doctor = await prisma.doctor.findFirstOrThrow({
     where: { id: input.doctorId, clinicId: input.clinicId },
   });
+
+  if (!isWorkingDay(doctor, input.startTime)) {
+    return { ok: false, reason: "OUTSIDE_WORKING_HOURS" };
+  }
 
   const dayStart = new Date(input.startTime);
   dayStart.setHours(0, 0, 0, 0);
@@ -116,6 +136,7 @@ export async function bookAppointment(
           startTime: input.startTime,
           patientName: input.patientName,
           patientPhone: input.patientPhone,
+          serviceName: input.serviceName,
           source: input.source,
         },
       });

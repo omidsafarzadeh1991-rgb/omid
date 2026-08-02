@@ -13,9 +13,11 @@ type SlotDTO = { startTime: string; isFree: boolean };
 export default function BookingForm({
   doctorId,
   slots,
+  services,
 }: {
   doctorId: string;
   slots: SlotDTO[];
+  services: string[];
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [state, action, pending] = useActionState(
@@ -78,6 +80,25 @@ export default function BookingForm({
 
       {selected && (
         <div className="card animate-in space-y-4 p-4">
+          {services.length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                نوع خدمت (اختیاری)
+              </label>
+              <select
+                name="serviceName"
+                defaultValue=""
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="">— انتخاب نشود —</option>
+                {services.map((service) => (
+                  <option key={service} value={service}>
+                    {service}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               نام بیمار

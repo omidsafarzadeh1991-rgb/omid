@@ -32,6 +32,7 @@ export default async function BookPage({
 
   const doctor = await prisma.doctor.findFirst({
     where: { id: doctorId, clinicId: session.clinicId },
+    include: { services: true },
   });
   if (!doctor) notFound();
 
@@ -77,6 +78,7 @@ export default async function BookPage({
 
       <BookingForm
         doctorId={doctor.id}
+        services={doctor.services.map((s) => s.name)}
         slots={slots.map((s) => ({
           startTime: s.startTime.toISOString(),
           isFree: s.isFree,

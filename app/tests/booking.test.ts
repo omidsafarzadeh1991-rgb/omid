@@ -10,6 +10,14 @@ function nextMonday9am() {
   return d;
 }
 
+// Friday (day 5) is not in the default work-days set ("6,0,1,2,3" = Sat-Wed).
+function nextFriday9am() {
+  const d = new Date();
+  d.setDate(d.getDate() + ((5 + 7 - d.getDay()) % 7 || 7));
+  d.setHours(9, 0, 0, 0);
+  return d;
+}
+
 describe("bookAppointment", () => {
   it("books a free slot", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
@@ -101,6 +109,73 @@ describe("bookAppointment", () => {
     if (!result.ok) {
       expect(result.reason).toBe("PAST_TIME");
     }
+  });
+
+  it("rejects a booking on a day the doctor doesn't work", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextFriday9am();
+
+    const result = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime,
+      patientName: "تست",
+      patientPhone: "09120000009",
+      source: "MANUAL",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("OUTSIDE_WORKING_HOURS");
+    }
+  });
+
+  it("offers no slots at all for a day the doctor doesn't work", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const friday = nextFriday9am();
+
+    const slots = await getSlotsForDay(clinic.id, doctor.id, friday);
+    expect(slots).toHaveLength(0);
+  });
+
+  it("allows booking on a day included in a custom work-days schedule", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor({
+      workDays: "5", // Friday only
+    });
+    const startTime = nextFriday9am();
+
+    const result = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime,
+      patientName: "تست",
+      patientPhone: "09120000010",
+      source: "MANUAL",
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("stores the selected service on the appointment", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+
+    const result = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime,
+      patientName: "تست",
+      patientPhone: "09120000011",
+      serviceName: "جرمگیری",
+      source: "MANUAL",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const appointment = await prisma.appointment.findUniqueOrThrow({
+      where: { id: result.appointmentId },
+    });
+    expect(appointment.serviceName).toBe("جرمگیری");
   });
 
   it("does not offer already-passed slots as free when listing a day", async () => {

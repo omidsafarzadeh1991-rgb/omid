@@ -11,6 +11,10 @@ const CreateDoctorSchema = z.object({
   workStartHour: z.coerce.number().int().min(0).max(23),
   workEndHour: z.coerce.number().int().min(1).max(24),
   slotMinutes: z.coerce.number().int().min(5).max(240),
+  workDays: z
+    .array(z.coerce.number().int().min(0).max(6))
+    .min(1, "حداقل یک روز کاری را انتخاب کنید."),
+  services: z.string().optional(),
 });
 
 export type CreateDoctorFormState =
@@ -36,6 +40,8 @@ export async function createDoctorAction(
     workStartHour: formData.get("workStartHour"),
     workEndHour: formData.get("workEndHour"),
     slotMinutes: formData.get("slotMinutes"),
+    workDays: formData.getAll("workDays"),
+    services: formData.get("services"),
   });
 
   if (!validated.success) {
@@ -46,14 +52,32 @@ export async function createDoctorAction(
     return { message: "ساعت پایان باید بعد از ساعت شروع باشد." };
   }
 
-  await prisma.doctor.create({
-    data: {
-      clinicId: session.clinicId,
-      name: validated.data.name,
-      workStartMin: validated.data.workStartHour * 60,
-      workEndMin: validated.data.workEndHour * 60,
-      slotMinutes: validated.data.slotMinutes,
-    },
+  const serviceNames = (validated.data.services ?? "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  await prisma.$transaction(async (tx) => {
+    const doctor = await tx.doctor.create({
+      data: {
+        clinicId: session.clinicId,
+        name: validated.data.name,
+        workStartMin: validated.data.workStartHour * 60,
+        workEndMin: validated.data.workEndHour * 60,
+        slotMinutes: validated.data.slotMinutes,
+        workDays: validated.data.workDays.join(","),
+      },
+    });
+
+    if (serviceNames.length > 0) {
+      await tx.service.createMany({
+        data: serviceNames.map((name) => ({
+          clinicId: session.clinicId,
+          doctorId: doctor.id,
+          name,
+        })),
+      });
+    }
   });
 
   revalidatePath("/dashboard/doctors");

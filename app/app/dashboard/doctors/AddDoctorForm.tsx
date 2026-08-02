@@ -5,8 +5,10 @@ import {
   createDoctorAction,
   type CreateDoctorFormState,
 } from "@/app/actions/clinic";
+import { WEEK_DAYS } from "@/lib/weekdays";
 
 const initialState: CreateDoctorFormState = undefined;
+const DEFAULT_WORK_DAYS = [6, 0, 1, 2, 3]; // شنبه تا چهارشنبه
 
 export default function AddDoctorForm() {
   const [state, action, pending] = useActionState(
@@ -60,6 +62,45 @@ export default function AddDoctorForm() {
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
       </div>
+
+      <div className="sm:col-span-4">
+        <label className="mb-2 block text-xs font-medium text-slate-600">
+          روزهای حضور در هفته
+        </label>
+        <div className="flex flex-wrap gap-3">
+          {WEEK_DAYS.map((day) => (
+            <label
+              key={day.value}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 has-[:checked]:text-teal-700"
+            >
+              <input
+                type="checkbox"
+                name="workDays"
+                value={day.value}
+                defaultChecked={(DEFAULT_WORK_DAYS as number[]).includes(day.value)}
+                className="accent-teal-600"
+              />
+              {day.label}
+            </label>
+          ))}
+        </div>
+        {state?.errors?.workDays && (
+          <p className="mt-1 text-xs text-red-600">{state.errors.workDays[0]}</p>
+        )}
+      </div>
+
+      <div className="sm:col-span-4">
+        <label className="mb-1 block text-xs font-medium text-slate-600">
+          خدماتی که ارائه می‌دهد (اختیاری — هر خدمت را در یک خط بنویسید)
+        </label>
+        <textarea
+          name="services"
+          rows={3}
+          placeholder={"ویزیت عمومی\nجرمگیری\nعصب‌کشی"}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        />
+      </div>
+
       <div className="sm:col-span-4 flex items-end gap-3">
         <div className="flex-1">
           <label className="mb-1 block text-xs font-medium text-slate-600">

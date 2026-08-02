@@ -14,6 +14,7 @@ const CreateAppointmentSchema = z.object({
     .string()
     .trim()
     .regex(/^0\d{10}$/, "شمارهٔ تماس باید به شکل ۰۹xxxxxxxxx باشد."),
+  serviceName: z.string().trim().optional(),
 });
 
 export type CreateAppointmentFormState =
@@ -36,6 +37,7 @@ export async function createManualAppointmentAction(
     startTime: formData.get("startTime"),
     patientName: formData.get("patientName"),
     patientPhone: formData.get("patientPhone"),
+    serviceName: formData.get("serviceName") || undefined,
   });
 
   if (!validated.success) {
@@ -55,6 +57,7 @@ export async function createManualAppointmentAction(
     startTime: new Date(validated.data.startTime),
     patientName: validated.data.patientName,
     patientPhone: validated.data.patientPhone,
+    serviceName: validated.data.serviceName || undefined,
     source: "MANUAL",
     actorStaffId: session.staffId,
   });
