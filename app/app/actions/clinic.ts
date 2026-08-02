@@ -5,15 +5,11 @@ import { z } from "zod";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { createStaffMember } from "@/lib/auth";
+import { WEEK_DAYS } from "@/lib/weekdays";
 
 const CreateDoctorSchema = z.object({
   name: z.string().trim().min(2, "نام پزشک باید حداقل ۲ حرف باشد."),
-  workStartHour: z.coerce.number().int().min(0).max(23),
-  workEndHour: z.coerce.number().int().min(1).max(24),
   slotMinutes: z.coerce.number().int().min(5).max(240),
-  workDays: z
-    .array(z.coerce.number().int().min(0).max(6))
-    .min(1, "حداقل یک روز کاری را انتخاب کنید."),
   services: z.string().optional(),
 });
 
@@ -37,10 +33,7 @@ export async function createDoctorAction(
 
   const validated = CreateDoctorSchema.safeParse({
     name: formData.get("name"),
-    workStartHour: formData.get("workStartHour"),
-    workEndHour: formData.get("workEndHour"),
     slotMinutes: formData.get("slotMinutes"),
-    workDays: formData.getAll("workDays"),
     services: formData.get("services"),
   });
 
@@ -48,8 +41,30 @@ export async function createDoctorAction(
     return { errors: validated.error.flatten().fieldErrors };
   }
 
-  if (validated.data.workEndHour <= validated.data.workStartHour) {
-    return { message: "ساعت پایان باید بعد از ساعت شروع باشد." };
+  const schedules: { dayOfWeek: number; startMin: number; endMin: number }[] = [];
+  for (const day of WEEK_DAYS) {
+    if (!formData.get(`day_${day.value}_enabled`)) continue;
+
+    const startHour = Number(formData.get(`day_${day.value}_start`));
+    const endHour = Number(formData.get(`day_${day.value}_end`));
+    if (
+      !Number.isFinite(startHour) ||
+      !Number.isFinite(endHour) ||
+      endHour <= startHour
+    ) {
+      return {
+        message: `ساعت‌های روز ${day.label} نامعتبر است (ساعت پایان باید بعد از ساعت شروع باشد).`,
+      };
+    }
+    schedules.push({
+      dayOfWeek: day.value,
+      startMin: startHour * 60,
+      endMin: endHour * 60,
+    });
+  }
+
+  if (schedules.length === 0) {
+    return { message: "حداقل یک روز کاری را انتخاب کنید." };
   }
 
   const serviceNames = (validated.data.services ?? "")
@@ -62,10 +77,8 @@ export async function createDoctorAction(
       data: {
         clinicId: session.clinicId,
         name: validated.data.name,
-        workStartMin: validated.data.workStartHour * 60,
-        workEndMin: validated.data.workEndHour * 60,
         slotMinutes: validated.data.slotMinutes,
-        workDays: validated.data.workDays.join(","),
+        schedules: { create: schedules },
       },
     });
 

@@ -140,6 +140,29 @@ body {
   font-size: 0.8125rem;
 }
 
+/* ---- Sidebar ---- */
+
+.sidebar-dark {
+  background: linear-gradient(190deg, #111c33 0%, #0b1220 55%, #060a14 100%);
+}
+
+.sidebar-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      160px 160px at 85% -5%,
+      rgba(45, 212, 191, 0.35),
+      transparent 70%
+    ),
+    radial-gradient(
+      200px 200px at -10% 100%,
+      rgba(20, 184, 166, 0.18),
+      transparent 70%
+    );
+}
+
 /* ---- Entrance animation ---- */
 
 @keyframes fade-in-up {

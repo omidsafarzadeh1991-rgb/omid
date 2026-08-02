@@ -52,20 +52,30 @@ model StaffUser {
 }
 
 model Doctor {
-  id           String   @id @default(cuid())
-  clinicId     String
-  clinic       Clinic   @relation(fields: [clinicId], references: [id])
-  name         String
-  workStartMin Int      @default(540) // 09:00 in minutes from midnight
-  workEndMin   Int      @default(1020) // 17:00 in minutes from midnight
-  slotMinutes  Int      @default(30)
-  // Comma-separated days of week the doctor is present, using
-  // JS Date#getDay() numbering (0=Sunday ... 6=Saturday).
-  workDays     String   @default("6,0,1,2,3")
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  clinicId    String
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  name        String
+  slotMinutes Int      @default(30)
+  createdAt   DateTime @default(now())
 
   appointments Appointment[]
   services     Service[]
+  schedules    DoctorSchedule[]
+}
+
+// One row per day of week the doctor is present, so hours can differ by
+// day (e.g. Saturday 10:00-18:00, Wednesday 12:00-15:00). No row for a
+// given day means the doctor doesn't work that day.
+model DoctorSchedule {
+  id        String @id @default(cuid())
+  doctorId  String
+  doctor    Doctor @relation(fields: [doctorId], references: [id])
+  dayOfWeek Int // JS Date#getDay(): 0=Sunday ... 6=Saturday
+  startMin  Int // minutes from midnight
+  endMin    Int // minutes from midnight
+
+  @@unique([doctorId, dayOfWeek])
 }
 
 model Service {

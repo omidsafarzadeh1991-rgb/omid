@@ -10,9 +10,21 @@ export const WEEK_DAYS = [
   { value: 5, label: "جمعه" },
 ] as const;
 
-export function formatWorkDays(workDays: string): string {
-  const values = workDays.split(",").map(Number);
-  return WEEK_DAYS.filter((d) => values.includes(d.value))
-    .map((d) => d.label)
-    .join("، ");
+function formatHour(minutesFromMidnight: number): string {
+  const h = Math.floor(minutesFromMidnight / 60);
+  const m = minutesFromMidnight % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
+export type DaySchedule = { dayOfWeek: number; startMin: number; endMin: number };
+
+/** e.g. "شنبه ۱۰:۰۰ تا ۱۸:۰۰ · چهارشنبه ۱۲:۰۰ تا ۱۵:۰۰" */
+export function formatSchedules(schedules: DaySchedule[]): string {
+  const byDay = new Map(schedules.map((s) => [s.dayOfWeek, s]));
+  return WEEK_DAYS.filter((d) => byDay.has(d.value))
+    .map((d) => {
+      const s = byDay.get(d.value)!;
+      return `${d.label} ${formatHour(s.startMin)} تا ${formatHour(s.endMin)}`;
+    })
+    .join(" · ");
 }

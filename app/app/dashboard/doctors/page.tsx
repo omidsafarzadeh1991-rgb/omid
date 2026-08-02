@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
-import { formatWorkDays } from "@/lib/weekdays";
+import { formatSchedules } from "@/lib/weekdays";
 import AddDoctorForm from "./AddDoctorForm";
 
 export default async function DoctorsPage() {
@@ -14,7 +14,7 @@ export default async function DoctorsPage() {
   const doctors = await prisma.doctor.findMany({
     where: { clinicId: session.clinicId },
     orderBy: { createdAt: "asc" },
-    include: { services: true },
+    include: { services: true, schedules: true },
   });
 
   return (
@@ -39,14 +39,10 @@ export default async function DoctorsPage() {
                 <div>
                   <p className="font-medium text-slate-800">{doctor.name}</p>
                   <p className="text-xs text-slate-500">
-                    {Math.floor(doctor.workStartMin / 60)}:
-                    {String(doctor.workStartMin % 60).padStart(2, "0")} تا{" "}
-                    {Math.floor(doctor.workEndMin / 60)}:
-                    {String(doctor.workEndMin % 60).padStart(2, "0")} — هر{" "}
-                    {doctor.slotMinutes} دقیقه
+                    هر نوبت {doctor.slotMinutes} دقیقه
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    روزهای حضور: {formatWorkDays(doctor.workDays)}
+                    {formatSchedules(doctor.schedules)}
                   </p>
                   {doctor.services.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">

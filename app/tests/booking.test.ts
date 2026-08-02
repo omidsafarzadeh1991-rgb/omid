@@ -18,6 +18,13 @@ function nextFriday9am() {
   return d;
 }
 
+function nextDayOfWeek(dayOfWeek: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + ((dayOfWeek + 7 - d.getDay()) % 7 || 7));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 describe("bookAppointment", () => {
   it("books a free slot", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
@@ -140,7 +147,7 @@ describe("bookAppointment", () => {
 
   it("allows booking on a day included in a custom work-days schedule", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor({
-      workDays: "5", // Friday only
+      schedules: [{ dayOfWeek: 5, startMin: 9 * 60, endMin: 17 * 60 }], // Friday only
     });
     const startTime = nextFriday9am();
 
@@ -154,6 +161,54 @@ describe("bookAppointment", () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+
+  it("respects different working hours on different days for the same doctor", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor({
+      schedules: [
+        { dayOfWeek: 6, startMin: 10 * 60, endMin: 18 * 60 }, // Saturday 10-18
+        { dayOfWeek: 3, startMin: 12 * 60, endMin: 15 * 60 }, // Wednesday 12-15
+      ],
+    });
+
+    const saturday = nextDayOfWeek(6);
+    const saturdaySlots = await getSlotsForDay(clinic.id, doctor.id, saturday);
+    expect(saturdaySlots[0]?.startTime.getHours()).toBe(10);
+    expect(saturdaySlots.at(-1)?.startTime.getHours()).toBe(17);
+    expect(saturdaySlots.some((s) => s.startTime.getHours() === 12)).toBe(true);
+
+    const wednesday = nextDayOfWeek(3);
+    const wednesdaySlots = await getSlotsForDay(clinic.id, doctor.id, wednesday);
+    expect(wednesdaySlots[0]?.startTime.getHours()).toBe(12);
+    expect(wednesdaySlots.at(-1)?.startTime.getHours()).toBe(14);
+    expect(wednesdaySlots.some((s) => s.startTime.getHours() === 10)).toBe(false);
+
+    // Booking at 13:00 on Wednesday must succeed...
+    const wednesday13 = new Date(wednesday);
+    wednesday13.setHours(13, 0, 0, 0);
+    const bookedOnWednesday = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime: wednesday13,
+      patientName: "تست",
+      patientPhone: "09120000012",
+      source: "MANUAL",
+    });
+    expect(bookedOnWednesday.ok).toBe(true);
+
+    // ...but 13:00 falls outside Saturday's 10-18 grid alignment is fine,
+    // while an hour outside Wednesday's 12-15 window must be rejected.
+    const wednesday16 = new Date(wednesday);
+    wednesday16.setHours(16, 0, 0, 0);
+    const rejectedOnWednesday = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime: wednesday16,
+      patientName: "تست",
+      patientPhone: "09120000013",
+      source: "MANUAL",
+    });
+    expect(rejectedOnWednesday.ok).toBe(false);
   });
 
   it("stores the selected service on the appointment", async () => {

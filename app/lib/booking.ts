@@ -1,5 +1,5 @@
 import "server-only";
-import { Prisma, type Doctor } from "@/generated/prisma/client";
+import { Prisma, type DoctorSchedule } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export type AppointmentSource =
@@ -16,27 +16,29 @@ export type Slot = {
 
 const PRISMA_UNIQUE_CONSTRAINT_ERROR = "P2002";
 
-export function parseWorkDays(workDays: string): number[] {
-  return workDays
-    .split(",")
-    .map((d) => Number(d.trim()))
-    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+function getScheduleForDay(
+  doctorId: string,
+  dayOfWeek: number
+): Promise<DoctorSchedule | null> {
+  return prisma.doctorSchedule.findUnique({
+    where: { doctorId_dayOfWeek: { doctorId, dayOfWeek } },
+  });
 }
 
-function isWorkingDay(doctor: Doctor, day: Date): boolean {
-  return parseWorkDays(doctor.workDays).includes(day.getDay());
-}
-
-/** Generates every slot for a doctor's working hours on a given calendar day. */
-function generateDaySlotTimes(doctor: Doctor, day: Date): Date[] {
+/** Generates every slot within a day's schedule window. */
+function generateDaySlotTimes(
+  schedule: Pick<DoctorSchedule, "startMin" | "endMin">,
+  slotMinutes: number,
+  day: Date
+): Date[] {
   const dayStart = new Date(day);
   dayStart.setHours(0, 0, 0, 0);
 
   const times: Date[] = [];
   for (
-    let minutes = doctor.workStartMin;
-    minutes < doctor.workEndMin;
-    minutes += doctor.slotMinutes
+    let minutes = schedule.startMin;
+    minutes < schedule.endMin;
+    minutes += slotMinutes
   ) {
     times.push(new Date(dayStart.getTime() + minutes * 60_000));
   }
@@ -53,7 +55,8 @@ export async function getSlotsForDay(
     where: { id: doctorId, clinicId },
   });
 
-  if (!isWorkingDay(doctor, day)) {
+  const schedule = await getScheduleForDay(doctorId, day.getDay());
+  if (!schedule) {
     return [];
   }
 
@@ -71,10 +74,12 @@ export async function getSlotsForDay(
   const bookedTimes = new Set(booked.map((b) => b.startTime.getTime()));
 
   const now = Date.now();
-  return generateDaySlotTimes(doctor, day).map((startTime) => ({
-    startTime,
-    isFree: !bookedTimes.has(startTime.getTime()) && startTime.getTime() > now,
-  }));
+  return generateDaySlotTimes(schedule, doctor.slotMinutes, day).map(
+    (startTime) => ({
+      startTime,
+      isFree: !bookedTimes.has(startTime.getTime()) && startTime.getTime() > now,
+    })
+  );
 }
 
 export type BookAppointmentInput = {
@@ -105,7 +110,8 @@ export async function bookAppointment(
     where: { id: input.doctorId, clinicId: input.clinicId },
   });
 
-  if (!isWorkingDay(doctor, input.startTime)) {
+  const schedule = await getScheduleForDay(input.doctorId, input.startTime.getDay());
+  if (!schedule) {
     return { ok: false, reason: "OUTSIDE_WORKING_HOURS" };
   }
 
@@ -115,9 +121,9 @@ export async function bookAppointment(
     (input.startTime.getTime() - dayStart.getTime()) / 60_000
   );
   const isAlignedSlot =
-    minutesFromMidnight >= doctor.workStartMin &&
-    minutesFromMidnight < doctor.workEndMin &&
-    (minutesFromMidnight - doctor.workStartMin) % doctor.slotMinutes === 0;
+    minutesFromMidnight >= schedule.startMin &&
+    minutesFromMidnight < schedule.endMin &&
+    (minutesFromMidnight - schedule.startMin) % doctor.slotMinutes === 0;
 
   if (!isAlignedSlot) {
     return { ok: false, reason: "OUTSIDE_WORKING_HOURS" };

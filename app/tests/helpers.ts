@@ -2,7 +2,15 @@ import { prisma } from "@/lib/prisma";
 
 let counter = 0;
 
-export async function createTestClinicWithDoctor(options?: { workDays?: string }) {
+const DEFAULT_SCHEDULES = [6, 0, 1, 2, 3].map((dayOfWeek) => ({
+  dayOfWeek,
+  startMin: 9 * 60,
+  endMin: 17 * 60,
+}));
+
+export async function createTestClinicWithDoctor(options?: {
+  schedules?: { dayOfWeek: number; startMin: number; endMin: number }[];
+}) {
   counter += 1;
   const clinic = await prisma.clinic.create({
     data: { name: `Test Clinic ${counter}` },
@@ -11,10 +19,8 @@ export async function createTestClinicWithDoctor(options?: { workDays?: string }
     data: {
       clinicId: clinic.id,
       name: "Dr. Test",
-      workStartMin: 9 * 60,
-      workEndMin: 17 * 60,
       slotMinutes: 30,
-      ...(options?.workDays ? { workDays: options.workDays } : {}),
+      schedules: { create: options?.schedules ?? DEFAULT_SCHEDULES },
     },
   });
   return { clinic, doctor };

@@ -32,9 +32,11 @@ export default async function BookPage({
 
   const doctor = await prisma.doctor.findFirst({
     where: { id: doctorId, clinicId: session.clinicId },
-    include: { services: true },
+    include: { services: true, schedules: true },
   });
   if (!doctor) notFound();
+
+  const workingDaySet = new Set(doctor.schedules.map((s) => s.dayOfWeek));
 
   const selectedDay = parseDateParam(dateParam);
   const slots = await getSlotsForDay(session.clinicId, doctor.id, selectedDay);
@@ -60,11 +62,18 @@ export default async function BookPage({
       <div className="flex flex-wrap gap-2">
         {dayOptions.map((day) => {
           const isActive = toDateParam(day) === toDateParam(selectedDay);
+          const isWorkingDay = workingDaySet.has(day.getDay());
           return (
             <Link
               key={day.toISOString()}
               href={`/book/${doctor.id}?date=${toDateParam(day)}`}
-              className={isActive ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+              className={
+                isActive
+                  ? "btn btn-primary btn-sm"
+                  : isWorkingDay
+                    ? "btn btn-secondary btn-sm"
+                    : "btn btn-secondary btn-sm opacity-40"
+              }
             >
               {new Intl.DateTimeFormat("fa-IR", {
                 weekday: "short",
