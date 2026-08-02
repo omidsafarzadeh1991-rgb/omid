@@ -44,21 +44,44 @@ model Clinic {
   doctors     Doctor[]
   appointments Appointment[]
   botIntegrations BotIntegration[]
+  botConversations BotConversation[]
 }
 
 // Per-clinic messenger bot connection. The token is encrypted at rest
 // (see lib/crypto.ts) and is never sent back to the browser after saving.
 model BotIntegration {
+  id                    String      @id @default(cuid())
+  clinicId              String
+  clinic                Clinic      @relation(fields: [clinicId], references: [id])
+  platform              BotPlatform
+  encryptedToken        String
+  // Shared secret Telegram/Bale echoes back on every webhook call (verified
+  // against the platform's signature header) so forged requests are rejected.
+  // Nullable so upgrading an existing row doesn't require a backfill migration;
+  // lib/settings.ts generates and saves one lazily on first use.
+  encryptedWebhookSecret String?
+  enabled                Boolean     @default(false)
+  updatedAt              DateTime    @updatedAt
+  createdAt              DateTime    @default(now())
+
+  @@unique([clinicId, platform])
+}
+
+// Per-chat conversation history with the AI receptionist, so multi-turn
+// context survives across separate webhook requests (each incoming message
+// is its own HTTP call). history is a JSON-serialized array of Anthropic
+// message params.
+model BotConversation {
   id             String      @id @default(cuid())
   clinicId       String
   clinic         Clinic      @relation(fields: [clinicId], references: [id])
   platform       BotPlatform
-  encryptedToken String
-  enabled        Boolean     @default(false)
+  externalChatId String
+  history        String      @default("[]")
   updatedAt      DateTime    @updatedAt
   createdAt      DateTime    @default(now())
 
-  @@unique([clinicId, platform])
+  @@unique([clinicId, platform, externalChatId])
 }
 
 model StaffUser {

@@ -1,8 +1,37 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/dal";
-import { getBotIntegrations } from "@/lib/settings";
+import { getBotIntegrations, getWebhookSecret } from "@/lib/settings";
 import { setBotEnabledAction } from "@/app/actions/settings";
 import BotTokenForm from "./BotTokenForm";
+
+async function TelegramWebhookInfo({ clinicId }: { clinicId: string }) {
+  const secret = await getWebhookSecret(clinicId, "TELEGRAM");
+  if (!secret) return null;
+
+  const webhookUrl = `https://<آدرس-ngrok-شما>/api/telegram/webhook/${clinicId}`;
+  const curlCommand = `curl "https://api.telegram.org/bot<توکن-ربات-شما>/setWebhook" -d "url=${webhookUrl}" -d "secret_token=${secret}"`;
+
+  return (
+    <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm">
+      <p className="mb-2 text-slate-700">
+        برای فعال‌شدن بات روی تلگرام، یک‌بار (و بعد از هر بار که آدرس ngrok
+        عوض شد) این دستور را با آدرس واقعی ngrok و توکن ربات خودتان جایگزین
+        کنید و در Command Prompt اجرا کنید:
+      </p>
+      <pre
+        dir="ltr"
+        className="overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100"
+      >
+        {curlCommand}
+      </pre>
+      <p className="mt-2 text-xs text-slate-500">
+        این کار فقط با اتصال به اینترنت ممکن است (تلگرام باید بتواند به سیستم
+        شما پیام برساند)؛ راهنمای کامل نصب و اجرای ngrok در فایل README پروژه
+        آمده است.
+      </p>
+    </div>
+  );
+}
 
 const PLATFORMS = [
   {
@@ -77,6 +106,9 @@ export default async function SettingsPage() {
               </div>
             </div>
             <BotTokenForm platform={platform.value} hasToken={!!integration} />
+            {platform.value === "TELEGRAM" && integration && (
+              <TelegramWebhookInfo clinicId={session.clinicId} />
+            )}
           </section>
         );
       })}
