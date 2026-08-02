@@ -86,3 +86,18 @@ export async function setBotEnabled(
     data: { enabled },
   });
 }
+
+export async function getAssistantInstructions(clinicId: string): Promise<string> {
+  const clinic = await prisma.clinic.findUniqueOrThrow({
+    where: { id: clinicId },
+    select: { assistantInstructions: true },
+  });
+  return clinic.assistantInstructions ?? "";
+}
+
+export async function saveAssistantInstructions(clinicId: string, text: string) {
+  await prisma.clinic.update({
+    where: { id: clinicId },
+    data: { assistantInstructions: text.trim() || null },
+  });
+}

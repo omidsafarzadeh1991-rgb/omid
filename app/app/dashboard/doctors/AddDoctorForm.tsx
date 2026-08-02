@@ -118,12 +118,13 @@ export default function AddDoctorForm() {
 
       <div className="sm:col-span-4">
         <label className="mb-1 block text-xs font-medium text-slate-600">
-          خدماتی که ارائه می‌دهد (اختیاری — هر خدمت را در یک خط بنویسید)
+          خدماتی که ارائه می‌دهد (اختیاری — هر خدمت را در یک خط بنویسید؛ برای
+          نوشتن قیمت به تومان، بعد از یک خط تیره «-» بنویسید)
         </label>
         <textarea
           name="services"
           rows={3}
-          placeholder={"ویزیت عمومی\nجرمگیری\nعصب‌کشی"}
+          placeholder={"ویزیت عمومی - 200000\nجرمگیری - 350000\nمشاوره"}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
       </div>

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { bookAppointment, getSlotsForDay } from "@/lib/booking";
 import { formatSchedules } from "@/lib/weekdays";
+import { formatToman } from "@/lib/format";
 import type { BotPlatform } from "@/generated/prisma/client";
 
 const MODEL = process.env.ASSISTANT_MODEL || "claude-haiku-4-5";
@@ -83,7 +84,10 @@ async function executeTool(
         id: doctor.id,
         name: doctor.name,
         workSchedule: formatSchedules(doctor.schedules) || "بدون برنامهٔ کاری تعریف‌شده",
-        services: doctor.services.map((service) => service.name),
+        services: doctor.services.map((service) => ({
+          name: service.name,
+          price: service.price != null ? formatToman(service.price) : "قیمت تعیین نشده",
+        })),
       }))
     );
   }
@@ -153,7 +157,7 @@ async function executeTool(
   return JSON.stringify({ error: "ابزار ناشناخته." });
 }
 
-function buildSystemPrompt(clinicName: string): string {
+function buildSystemPrompt(clinicName: string, adminInstructions: string): string {
   const now = new Date();
   const todayLabel = now.toLocaleDateString("fa-IR-u-ca-gregory", {
     weekday: "long",
@@ -163,19 +167,33 @@ function buildSystemPrompt(clinicName: string): string {
   });
   const isoToday = now.toISOString().slice(0, 10);
 
-  return [
+  const fixedRules = [
     `تو منشی هوش مصنوعی «${clinicName}» هستی و با بیماران در تلگرام گفتگو می‌کنی.`,
     `امروز ${todayLabel} (${isoToday}) است؛ تاریخ‌های نسبی مثل «فردا» یا «چهارشنبه» را بر این اساس به فرمت YYYY-MM-DD تبدیل کن.`,
-    "فقط دربارهٔ نوبت‌دهی، پزشکان، خدمات و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
-    "برای دیدن پزشکان از list_doctors و برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت حدس نزن.",
+    "فقط دربارهٔ نوبت‌دهی، پزشکان، خدمات، قیمت‌ها و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
+    "برای دیدن پزشکان، خدمات و قیمت‌ها از list_doctors و برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت یا قیمت یک خدمت حدس نزن.",
     "به محض این‌که پزشک، تاریخ، ساعت، نام و شمارهٔ تماس بیمار مشخص شد، بلافاصله با book_appointment نوبت را ثبت کن؛ منتظر تاییدِ اضافی نمان.",
     "پاسخ‌هایت کوتاه، مودبانه، و کاملاً فارسی باشد.",
+  ].join("\n");
+
+  if (!adminInstructions.trim()) {
+    return fixedRules;
+  }
+
+  return [
+    fixedRules,
+    "",
+    "علاوه بر این‌ها، مدیر این کلینیک دستورالعمل زیر را نوشته؛ آن را رعایت کن:",
+    adminInstructions.trim(),
+    "",
+    "اگر بین این دستورالعمل و قوانین بالا (به‌خصوص ندادن مشاورهٔ پزشکی و ثبت نوبت فقط از طریق ابزارها) تناقضی بود، همیشه قوانین بالا اولویت دارند.",
   ].join("\n");
 }
 
 export type AssistantTurnInput = {
   clinicId: string;
   clinicName: string;
+  assistantInstructions?: string;
   platform: BotPlatform;
   externalChatId: string;
   userText: string;
@@ -209,7 +227,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
   messages.push({ role: "user", content: input.userText });
 
   const client = getClient();
-  const system = buildSystemPrompt(input.clinicName);
+  const system = buildSystemPrompt(input.clinicName, input.assistantInstructions ?? "");
   let replyText = "";
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {

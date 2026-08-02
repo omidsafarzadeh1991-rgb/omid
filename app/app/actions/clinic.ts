@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { createStaffMember } from "@/lib/auth";
 import { WEEK_DAYS } from "@/lib/weekdays";
+import { parseServiceLines } from "@/lib/format";
 
 const CreateDoctorSchema = z.object({
   name: z.string().trim().min(2, "نام پزشک باید حداقل ۲ حرف باشد."),
@@ -67,10 +68,7 @@ export async function createDoctorAction(
     return { message: "حداقل یک روز کاری را انتخاب کنید." };
   }
 
-  const serviceNames = (validated.data.services ?? "")
-    .split("\n")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  const services = parseServiceLines(validated.data.services ?? "");
 
   await prisma.$transaction(async (tx) => {
     const doctor = await tx.doctor.create({
@@ -82,12 +80,13 @@ export async function createDoctorAction(
       },
     });
 
-    if (serviceNames.length > 0) {
+    if (services.length > 0) {
       await tx.service.createMany({
-        data: serviceNames.map((name) => ({
+        data: services.map((service) => ({
           clinicId: session.clinicId,
           doctorId: doctor.id,
-          name,
+          name: service.name,
+          price: service.price,
         })),
       });
     }

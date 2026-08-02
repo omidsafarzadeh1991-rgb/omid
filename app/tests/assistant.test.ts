@@ -2,6 +2,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createTestClinicWithDoctor } from "./helpers";
 
+function listDoctorsToolUseResponse() {
+  return {
+    content: [{ type: "tool_use", id: "toolu_list", name: "list_doctors", input: {} }],
+    stop_reason: "tool_use",
+  };
+}
+
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -150,5 +157,70 @@ describe("runAssistantTurn", () => {
       where: { doctorId: doctor.id, startTime },
     });
     expect(appointments).toHaveLength(1);
+  });
+
+  it("lets the AI see service prices via list_doctors", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    await prisma.service.create({
+      data: { clinicId: clinic.id, doctorId: doctor.id, name: "ویزیت عمومی", price: 250000 },
+    });
+
+    mockCreate.mockImplementationOnce(async () => listDoctorsToolUseResponse());
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("پزشکان و قیمت‌ها را نشان دادم."));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "333",
+      userText: "قیمت ویزیت چقدره؟",
+    });
+
+    const conversation = await prisma.botConversation.findUnique({
+      where: {
+        clinicId_platform_externalChatId: {
+          clinicId: clinic.id,
+          platform: "TELEGRAM",
+          externalChatId: "333",
+        },
+      },
+    });
+    const history = JSON.parse(conversation!.history);
+    const toolResultMessage = history.find(
+      (m: { role: string; content: unknown }) =>
+        m.role === "user" &&
+        Array.isArray(m.content) &&
+        (m.content as { type: string }[]).some((b) => b.type === "tool_result")
+    );
+    const toolResultContent = toolResultMessage.content[0].content as string;
+    const doctors = JSON.parse(toolResultContent);
+    expect(doctors[0].services).toEqual([
+      { name: "ویزیت عمومی", price: "۲۵۰٬۰۰۰ تومان" },
+    ]);
+  });
+
+  it("includes the admin's custom instructions in the system prompt but keeps hard rules in force", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    void doctor;
+    await prisma.clinic.update({
+      where: { id: clinic.id },
+      data: { assistantInstructions: "آدرس مطب: خیابان ولیعصر، پلاک ۱۲." },
+    });
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("باشه!"));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      assistantInstructions: "آدرس مطب: خیابان ولیعصر، پلاک ۱۲.",
+      platform: "TELEGRAM",
+      externalChatId: "444",
+      userText: "آدرس مطب کجاست؟",
+    });
+
+    const call = mockCreate.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("آدرس مطب: خیابان ولیعصر، پلاک ۱۲.");
+    expect(call.system).toContain("هرگز مشاورهٔ پزشکی یا تشخیص نده");
+    expect(call.system).toContain("همیشه قوانین بالا اولویت دارند");
   });
 });

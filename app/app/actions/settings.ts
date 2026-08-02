@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/dal";
-import { saveBotToken, setBotEnabled } from "@/lib/settings";
+import { saveBotToken, setBotEnabled, saveAssistantInstructions } from "@/lib/settings";
 import { maskSecret } from "@/lib/crypto";
 
 const SaveTokenSchema = z.object({
@@ -47,4 +47,20 @@ export async function setBotEnabledAction(
 
   await setBotEnabled(session.clinicId, platform, enabled);
   revalidatePath("/dashboard/settings");
+}
+
+export type SaveInstructionsFormState = { success?: string } | undefined;
+
+export async function saveAssistantInstructionsAction(
+  _prevState: SaveInstructionsFormState,
+  formData: FormData
+): Promise<SaveInstructionsFormState> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") return undefined;
+
+  const text = String(formData.get("instructions") ?? "");
+  await saveAssistantInstructions(session.clinicId, text);
+
+  revalidatePath("/dashboard/settings");
+  return { success: "دستورالعمل ذخیره شد." };
 }

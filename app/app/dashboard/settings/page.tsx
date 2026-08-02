@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/dal";
-import { getBotIntegrations, getWebhookSecret } from "@/lib/settings";
+import {
+  getBotIntegrations,
+  getWebhookSecret,
+  getAssistantInstructions,
+} from "@/lib/settings";
 import { setBotEnabledAction } from "@/app/actions/settings";
 import BotTokenForm from "./BotTokenForm";
+import AssistantInstructionsForm from "./AssistantInstructionsForm";
 
 async function TelegramWebhookInfo({ clinicId }: { clinicId: string }) {
   const secret = await getWebhookSecret(clinicId, "TELEGRAM");
@@ -54,6 +59,7 @@ export default async function SettingsPage() {
 
   const integrations = await getBotIntegrations(session.clinicId);
   const byPlatform = new Map(integrations.map((i) => [i.platform, i]));
+  const assistantInstructions = await getAssistantInstructions(session.clinicId);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10">
@@ -65,6 +71,21 @@ export default async function SettingsPage() {
           داده نمی‌شوند.
         </p>
       </div>
+
+      <section className="card animate-in p-6">
+        <h2 className="text-lg font-semibold text-slate-900">
+          دستورالعمل اضافی برای هوش مصنوعی
+        </h2>
+        <p className="mb-3 mt-1 text-xs text-slate-500">
+          هرچیزی که دوست دارید بات با بیمار بگوید یا نگوید، یا اطلاعاتی مثل
+          آدرس و قوانین خاص مطب، اینجا بنویسید. این متن همیشه علاوه بر
+          قوانین ثابت امنیتی برنامه اعمال می‌شود (مثلاً بات هیچ‌وقت، حتی با
+          این دستورالعمل، مشاورهٔ پزشکی نمی‌دهد). بات از قبل اسم پزشکان،
+          روزها و ساعات کاری، خدمات و قیمت‌هایی که در «مدیریت پزشکان» ثبت
+          کرده‌اید را می‌بیند؛ نیازی نیست اینجا دوباره تکرار کنید.
+        </p>
+        <AssistantInstructionsForm defaultValue={assistantInstructions} />
+      </section>
 
       {PLATFORMS.map((platform) => {
         const integration = byPlatform.get(platform.value);

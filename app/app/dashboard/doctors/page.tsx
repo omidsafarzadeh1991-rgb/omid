@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { formatSchedules } from "@/lib/weekdays";
+import { formatToman } from "@/lib/format";
 import AddDoctorForm from "./AddDoctorForm";
 
 export default async function DoctorsPage() {
@@ -52,6 +53,7 @@ export default async function DoctorsPage() {
                           className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
                         >
                           {service.name}
+                          {service.price != null && ` · ${formatToman(service.price)}`}
                         </span>
                       ))}
                     </div>

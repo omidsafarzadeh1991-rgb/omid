@@ -32,6 +32,7 @@ export async function POST(
     const reply = await runAssistantTurn({
       clinicId,
       clinicName: clinic.name,
+      assistantInstructions: clinic.assistantInstructions ?? undefined,
       platform: "TELEGRAM",
       externalChatId: String(chatId),
       userText: text,
