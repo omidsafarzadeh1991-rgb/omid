@@ -55,6 +55,14 @@ copy .env.example .env
 npx prisma migrate deploy
 ```
 
+> **اگر هنگام اجرا خطای `Module not found: Can't resolve '@/generated/prisma/client'` دیدید:**
+> این یعنی فایل‌های خودکار Prisma ساخته نشده. کافی است این دستور را بزنید و
+> دوباره `npm run dev` را اجرا کنید:
+>
+> ```bash
+> npx prisma generate
+> ```
+
 ## ۳. اجرای برنامه روی کامپیوتر خودتان
 
 هر بار که خواستید برنامه را اجرا کنید:
