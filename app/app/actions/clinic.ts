@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
+import { createStaffMember } from "@/lib/auth";
 
 const CreateDoctorSchema = z.object({
   name: z.string().trim().min(2, "نام پزشک باید حداقل ۲ حرف باشد."),
@@ -26,6 +27,9 @@ export async function createDoctorAction(
   formData: FormData
 ): Promise<CreateDoctorFormState> {
   const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    return { message: "فقط مدیر کلینیک می‌تواند پزشک اضافه کند." };
+  }
 
   const validated = CreateDoctorSchema.safeParse({
     name: formData.get("name"),
@@ -52,5 +56,55 @@ export async function createDoctorAction(
     },
   });
 
+  revalidatePath("/dashboard/doctors");
   revalidatePath("/dashboard");
+}
+
+const CreateStaffSchema = z.object({
+  name: z.string().trim().min(2, "نام باید حداقل ۲ حرف باشد."),
+  email: z.email("ایمیل معتبر وارد کنید."),
+  password: z.string().min(8, "رمز عبور باید حداقل ۸ کاراکتر باشد."),
+  role: z.enum(["ADMIN", "RECEPTIONIST"]),
+});
+
+export type CreateStaffFormState =
+  | {
+      errors?: Partial<Record<keyof z.infer<typeof CreateStaffSchema>, string[]>>;
+      message?: string;
+      success?: string;
+    }
+  | undefined;
+
+export async function createStaffAction(
+  _prevState: CreateStaffFormState,
+  formData: FormData
+): Promise<CreateStaffFormState> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    return { message: "فقط مدیر کلینیک می‌تواند کارمند اضافه کند." };
+  }
+
+  const validated = CreateStaffSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    role: formData.get("role"),
+  });
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors };
+  }
+
+  const result = await createStaffMember({
+    clinicId: session.clinicId,
+    name: validated.data.name,
+    email: validated.data.email,
+    password: validated.data.password,
+    role: validated.data.role,
+  });
+  if (!result.ok) {
+    return { message: "این ایمیل قبلاً برای یک حساب دیگر استفاده شده است." };
+  }
+
+  revalidatePath("/dashboard/staff");
+  return { success: `کاربر «${validated.data.name}» با موفقیت اضافه شد.` };
 }

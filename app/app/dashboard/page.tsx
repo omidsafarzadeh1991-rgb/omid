@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
-import { logoutAction } from "@/app/actions/auth";
 import { cancelManualAppointmentAction } from "@/app/actions/booking";
-import AddDoctorForm from "./AddDoctorForm";
 
 const SOURCE_LABELS: Record<string, string> = {
   MANUAL: "ثبت دستی",
@@ -15,6 +13,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await requireSession();
+  const isAdmin = session.role === "ADMIN";
 
   const now = new Date();
   const todayStart = new Date(now);
@@ -22,41 +21,40 @@ export default async function DashboardPage() {
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60_000);
   const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60_000);
 
-  const [
-    clinic,
-    doctors,
-    upcomingAppointments,
-    todayCount,
-    weekCount,
-    totalBookedEver,
-  ] = await Promise.all([
-    prisma.clinic.findUniqueOrThrow({ where: { id: session.clinicId } }),
-    prisma.doctor.findMany({
-      where: { clinicId: session.clinicId },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.appointment.findMany({
-      where: { clinicId: session.clinicId, startTime: { gte: now } },
-      orderBy: { startTime: "asc" },
-      take: 30,
-      include: { doctor: true },
-    }),
-    prisma.appointment.count({
-      where: {
-        clinicId: session.clinicId,
-        startTime: { gte: todayStart, lt: todayEnd },
-      },
-    }),
-    prisma.appointment.count({
-      where: {
-        clinicId: session.clinicId,
-        startTime: { gte: todayStart, lt: weekEnd },
-      },
-    }),
-    prisma.appointmentLog.count({
-      where: { clinicId: session.clinicId, action: "BOOKED" },
-    }),
-  ]);
+  const [doctors, upcomingAppointments, todayCount, weekCount, totalBookedEver] =
+    await Promise.all([
+      prisma.doctor.findMany({
+        where: { clinicId: session.clinicId },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.appointment.findMany({
+        where: { clinicId: session.clinicId, startTime: { gte: now } },
+        orderBy: { startTime: "asc" },
+        take: 30,
+        include: { doctor: true },
+      }),
+      isAdmin
+        ? prisma.appointment.count({
+            where: {
+              clinicId: session.clinicId,
+              startTime: { gte: todayStart, lt: todayEnd },
+            },
+          })
+        : 0,
+      isAdmin
+        ? prisma.appointment.count({
+            where: {
+              clinicId: session.clinicId,
+              startTime: { gte: todayStart, lt: weekEnd },
+            },
+          })
+        : 0,
+      isAdmin
+        ? prisma.appointmentLog.count({
+            where: { clinicId: session.clinicId, action: "BOOKED" },
+          })
+        : 0,
+    ]);
 
   const stats = [
     { label: "پزشکان", value: doctors.length },
@@ -67,22 +65,21 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-10">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">{clinic.name}</h1>
-          <p className="text-sm text-slate-500">پنل مدیریت نوبت‌دهی</p>
-        </div>
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
-          >
-            خروج
-          </button>
-        </form>
-      </header>
-
-      {doctors.length > 0 && (
+      {doctors.length === 0 ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+          {isAdmin ? (
+            <>
+              هنوز پزشکی ثبت نشده.{" "}
+              <Link href="/dashboard/doctors" className="text-teal-700 hover:underline">
+                از اینجا یک پزشک اضافه کنید
+              </Link>{" "}
+              تا بتوانید نوبت‌دهی را شروع کنید.
+            </>
+          ) : (
+            "هنوز پزشکی ثبت نشده. از مدیر کلینیک بخواهید یک پزشک اضافه کند."
+          )}
+        </section>
+      ) : (
         <section className="rounded-2xl bg-teal-600 p-6 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-white">
             ثبت نوبت جدید
@@ -101,53 +98,19 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm"
-          >
-            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-            <p className="mt-1 text-xs text-slate-500">{stat.label}</p>
-          </div>
-        ))}
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">پزشکان</h2>
-        {doctors.length === 0 ? (
-          <p className="mb-4 text-sm text-slate-500">
-            هنوز پزشکی ثبت نشده. برای شروع نوبت‌دهی، اول یک پزشک اضافه کنید.
-          </p>
-        ) : (
-          <ul className="mb-6 grid gap-3 sm:grid-cols-2">
-            {doctors.map((doctor) => (
-              <li
-                key={doctor.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3"
-              >
-                <div>
-                  <p className="font-medium text-slate-800">{doctor.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {Math.floor(doctor.workStartMin / 60)}:
-                    {String(doctor.workStartMin % 60).padStart(2, "0")} تا{" "}
-                    {Math.floor(doctor.workEndMin / 60)}:
-                    {String(doctor.workEndMin % 60).padStart(2, "0")} — هر{" "}
-                    {doctor.slotMinutes} دقیقه
-                  </p>
-                </div>
-                <Link
-                  href={`/book/${doctor.id}`}
-                  className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm text-white hover:bg-teal-700"
-                >
-                  ثبت نوبت
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-        <AddDoctorForm />
-      </section>
+      {isAdmin && (
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm"
+            >
+              <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+              <p className="mt-1 text-xs text-slate-500">{stat.label}</p>
+            </div>
+          ))}
+        </section>
+      )}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">

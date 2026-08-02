@@ -51,6 +51,45 @@ export async function registerClinic(
   }
 }
 
+export type CreateStaffInput = {
+  clinicId: string;
+  name: string;
+  email: string;
+  password: string;
+  role: "ADMIN" | "RECEPTIONIST";
+};
+
+export type CreateStaffResult =
+  | { ok: true; staffId: string }
+  | { ok: false; reason: "EMAIL_TAKEN" };
+
+export async function createStaffMember(
+  input: CreateStaffInput
+): Promise<CreateStaffResult> {
+  const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+
+  try {
+    const staff = await prisma.staffUser.create({
+      data: {
+        clinicId: input.clinicId,
+        name: input.name,
+        email: input.email.toLowerCase(),
+        passwordHash,
+        role: input.role,
+      },
+    });
+    return { ok: true, staffId: staff.id };
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === PRISMA_UNIQUE_CONSTRAINT_ERROR
+    ) {
+      return { ok: false, reason: "EMAIL_TAKEN" };
+    }
+    throw error;
+  }
+}
+
 export type VerifyLoginResult =
   | {
       ok: true;
