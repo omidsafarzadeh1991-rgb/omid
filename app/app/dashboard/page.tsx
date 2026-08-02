@@ -2,14 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { cancelManualAppointmentAction } from "@/app/actions/booking";
-
-const SOURCE_LABELS: Record<string, string> = {
-  MANUAL: "ثبت دستی",
-  TELEGRAM: "تلگرام",
-  BALE: "بله",
-  WHATSAPP: "واتس‌اپ",
-  INSTAGRAM: "اینستاگرام",
-};
+import SourceBadge from "./SourceBadge";
 
 export default async function DashboardPage() {
   const session = await requireSession();
@@ -21,40 +14,53 @@ export default async function DashboardPage() {
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60_000);
   const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60_000);
 
-  const [doctors, upcomingAppointments, todayCount, weekCount, totalBookedEver] =
-    await Promise.all([
-      prisma.doctor.findMany({
-        where: { clinicId: session.clinicId },
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.appointment.findMany({
-        where: { clinicId: session.clinicId, startTime: { gte: now } },
-        orderBy: { startTime: "asc" },
-        take: 30,
-        include: { doctor: true },
-      }),
-      isAdmin
-        ? prisma.appointment.count({
-            where: {
-              clinicId: session.clinicId,
-              startTime: { gte: todayStart, lt: todayEnd },
-            },
-          })
-        : 0,
-      isAdmin
-        ? prisma.appointment.count({
-            where: {
-              clinicId: session.clinicId,
-              startTime: { gte: todayStart, lt: weekEnd },
-            },
-          })
-        : 0,
-      isAdmin
-        ? prisma.appointmentLog.count({
-            where: { clinicId: session.clinicId, action: "BOOKED" },
-          })
-        : 0,
-    ]);
+  const [
+    doctors,
+    upcomingAppointments,
+    todayCount,
+    weekCount,
+    totalBookedEver,
+    bookedBySource,
+  ] = await Promise.all([
+    prisma.doctor.findMany({
+      where: { clinicId: session.clinicId },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.appointment.findMany({
+      where: { clinicId: session.clinicId, startTime: { gte: now } },
+      orderBy: { startTime: "asc" },
+      take: 30,
+      include: { doctor: true },
+    }),
+    isAdmin
+      ? prisma.appointment.count({
+          where: {
+            clinicId: session.clinicId,
+            startTime: { gte: todayStart, lt: todayEnd },
+          },
+        })
+      : 0,
+    isAdmin
+      ? prisma.appointment.count({
+          where: {
+            clinicId: session.clinicId,
+            startTime: { gte: todayStart, lt: weekEnd },
+          },
+        })
+      : 0,
+    isAdmin
+      ? prisma.appointmentLog.count({
+          where: { clinicId: session.clinicId, action: "BOOKED" },
+        })
+      : 0,
+    isAdmin
+      ? prisma.appointmentLog.groupBy({
+          by: ["source"],
+          where: { clinicId: session.clinicId, action: "BOOKED" },
+          _count: { _all: true },
+        })
+      : [],
+  ]);
 
   const stats = [
     { label: "پزشکان", value: doctors.length },
@@ -62,6 +68,8 @@ export default async function DashboardPage() {
     { label: "نوبت‌های ۷ روز آینده", value: weekCount },
     { label: "مجموع نوبت‌های ثبت‌شده", value: totalBookedEver },
   ];
+
+  const maxSourceCount = Math.max(1, ...bookedBySource.map((s) => s._count._all));
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-10">
@@ -116,6 +124,36 @@ export default async function DashboardPage() {
         </section>
       )}
 
+      {isAdmin && bookedBySource.length > 0 && (
+        <section className="card animate-in p-6">
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">
+            نوبت‌ها از کدام کانال بیشتر ثبت می‌شود
+          </h2>
+          <div className="space-y-3">
+            {bookedBySource
+              .sort((a, b) => b._count._all - a._count._all)
+              .map((row) => (
+                <div key={row.source} className="flex items-center gap-3">
+                  <div className="w-28 shrink-0">
+                    <SourceBadge source={row.source} />
+                  </div>
+                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-l from-teal-400 to-teal-600"
+                      style={{
+                        width: `${(row._count._all / maxSourceCount) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-left text-sm font-semibold text-slate-700">
+                    {row._count._all}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
       <section className="card animate-in p-6">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">
           نوبت‌های پیش رو
@@ -130,19 +168,21 @@ export default async function DashboardPage() {
                 className="flex items-center justify-between py-3"
               >
                 <div>
-                  <p className="font-medium text-slate-800">
-                    {appt.patientName}{" "}
-                    <span className="text-xs text-slate-400">
-                      ({appt.patientPhone})
-                    </span>
-                  </p>
+                  <div className="mb-1 flex items-center gap-2">
+                    <p className="font-medium text-slate-800">
+                      {appt.patientName}{" "}
+                      <span className="text-xs text-slate-400">
+                        ({appt.patientPhone})
+                      </span>
+                    </p>
+                    <SourceBadge source={appt.source} />
+                  </div>
                   <p className="text-sm text-slate-500">
                     {appt.doctor.name} —{" "}
                     {new Intl.DateTimeFormat("fa-IR", {
                       dateStyle: "medium",
                       timeStyle: "short",
-                    }).format(appt.startTime)}{" "}
-                    · {SOURCE_LABELS[appt.source] ?? appt.source}
+                    }).format(appt.startTime)}
                     {appt.serviceName && <> · {appt.serviceName}</>}
                   </p>
                 </div>

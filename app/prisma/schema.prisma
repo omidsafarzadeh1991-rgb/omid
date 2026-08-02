@@ -30,6 +30,11 @@ enum AppointmentAction {
   CANCELLED
 }
 
+enum BotPlatform {
+  TELEGRAM
+  BALE
+}
+
 model Clinic {
   id        String   @id @default(cuid())
   name      String
@@ -38,6 +43,22 @@ model Clinic {
   staff       StaffUser[]
   doctors     Doctor[]
   appointments Appointment[]
+  botIntegrations BotIntegration[]
+}
+
+// Per-clinic messenger bot connection. The token is encrypted at rest
+// (see lib/crypto.ts) and is never sent back to the browser after saving.
+model BotIntegration {
+  id             String      @id @default(cuid())
+  clinicId       String
+  clinic         Clinic      @relation(fields: [clinicId], references: [id])
+  platform       BotPlatform
+  encryptedToken String
+  enabled        Boolean     @default(false)
+  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime    @default(now())
+
+  @@unique([clinicId, platform])
 }
 
 model StaffUser {
