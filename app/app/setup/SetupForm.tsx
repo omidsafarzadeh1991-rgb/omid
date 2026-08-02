@@ -1,21 +1,33 @@
 "use client";
 
 import { useActionState } from "react";
-import {
-  createClinicAction,
-  type CreateClinicFormState,
-} from "@/app/actions/superadmin";
+import { setupAction, type SetupFormState } from "@/app/actions/setup";
 
-const initialState: CreateClinicFormState = undefined;
+const initialState: SetupFormState = undefined;
 
-export default function CreateClinicForm() {
-  const [state, action, pending] = useActionState(
-    createClinicAction,
-    initialState
-  );
+export default function SetupForm() {
+  const [state, action, pending] = useActionState(setupAction, initialState);
 
   return (
     <form action={action} className="grid gap-4 sm:grid-cols-2" dir="rtl">
+      <div className="sm:col-span-2">
+        <label className="mb-1 block text-sm font-medium text-slate-700">
+          رمز راه‌اندازی
+        </label>
+        <input
+          name="setupPassword"
+          type="password"
+          required
+          dir="ltr"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        />
+        {state?.errors?.setupPassword && (
+          <p className="mt-1 text-xs text-red-600">
+            {state.errors.setupPassword[0]}
+          </p>
+        )}
+      </div>
+
       <div className="sm:col-span-2">
         <label className="mb-1 block text-sm font-medium text-slate-700">
           نام کلینیک
@@ -69,7 +81,7 @@ export default function CreateClinicForm() {
 
       <div className="sm:col-span-2">
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          رمز عبور اولیهٔ مدیر کلینیک (حداقل ۸ کاراکتر)
+          رمز عبور مدیر کلینیک (حداقل ۸ کاراکتر)
         </label>
         <input
           name="adminPassword"
@@ -90,18 +102,13 @@ export default function CreateClinicForm() {
           {state.message}
         </p>
       )}
-      {state?.success && (
-        <p className="sm:col-span-2 rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-800">
-          {state.success}
-        </p>
-      )}
 
       <button
         type="submit"
         disabled={pending}
         className="btn btn-primary sm:col-span-2"
       >
-        {pending ? "در حال ساخت..." : "ساخت کلینیک"}
+        {pending ? "در حال راه‌اندازی..." : "راه‌اندازی و ورود"}
       </button>
     </form>
   );

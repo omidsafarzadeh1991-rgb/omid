@@ -1,10 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import {
-  getSession,
-  isSuperadminSessionValid,
-  type SessionPayload,
-} from "@/lib/session";
+import { getSession, type SessionPayload } from "@/lib/session";
 
 export async function requireSession(): Promise<SessionPayload> {
   const session = await getSession();
@@ -12,11 +8,4 @@ export async function requireSession(): Promise<SessionPayload> {
     redirect("/login");
   }
   return session;
-}
-
-export async function requireSuperadmin(): Promise<void> {
-  const ok = await isSuperadminSessionValid();
-  if (!ok) {
-    redirect("/superadmin/login");
-  }
 }

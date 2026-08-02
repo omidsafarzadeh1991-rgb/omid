@@ -24,28 +24,6 @@ export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const secret = process.env.SESSION_SECRET;
 
-  if (pathname.startsWith("/superadmin")) {
-    if (pathname === "/superadmin/login") {
-      const authenticated = await isValidToken(
-        request.cookies.get("superadmin_session")?.value,
-        secret
-      );
-      if (authenticated) {
-        return NextResponse.redirect(new URL("/superadmin", request.url));
-      }
-      return NextResponse.next();
-    }
-
-    const authenticated = await isValidToken(
-      request.cookies.get("superadmin_session")?.value,
-      secret
-    );
-    if (!authenticated) {
-      return NextResponse.redirect(new URL("/superadmin/login", request.url));
-    }
-    return NextResponse.next();
-  }
-
   const isProtected = PROTECTED_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );
@@ -72,11 +50,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/book/:path*",
-    "/login",
-    "/superadmin",
-    "/superadmin/:path*",
-  ],
+  matcher: ["/dashboard/:path*", "/book/:path*", "/login"],
 };

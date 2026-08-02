@@ -1,7 +1,10 @@
 import Link from "next/link";
 import LogoMark from "./components/LogoMark";
+import { isSetupComplete } from "@/lib/setup";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const setupDone = await isSetupComplete();
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 text-center">
       <div className="animate-in">
@@ -16,18 +19,11 @@ export default function HomePage() {
         </p>
       </div>
       <Link
-        href="/login"
+        href={setupDone ? "/login" : "/setup"}
         className="btn btn-primary animate-in px-8 py-3.5 text-base"
         style={{ animationDelay: "0.1s" }}
       >
-        ورود به پنل کلینیک
-      </Link>
-      <Link
-        href="/superadmin/login"
-        className="animate-in text-xs text-slate-400 hover:underline"
-        style={{ animationDelay: "0.2s" }}
-      >
-        ورود مدیر کل سامانه
+        {setupDone ? "ورود به پنل" : "راه‌اندازی اولیهٔ سامانه"}
       </Link>
       <footer
         className="animate-in mt-4 text-xs text-slate-400"
