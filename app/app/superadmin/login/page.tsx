@@ -3,7 +3,7 @@ import SuperadminLoginForm from "./SuperadminLoginForm";
 export default function SuperadminLoginPage() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="card animate-in w-full max-w-sm p-8">
         <h1 className="mb-1 text-xl font-bold text-slate-900">
           ورود مدیر کل سامانه
         </h1>

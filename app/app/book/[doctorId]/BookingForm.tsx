@@ -53,12 +53,12 @@ export default function BookingForm({
                 type="button"
                 disabled={!slot.isFree}
                 onClick={() => setSelected(slot.startTime)}
-                className={`rounded-lg px-2 py-2 text-sm transition ${
+                className={`rounded-lg px-2 py-2 text-sm transition-all duration-150 ${
                   !slot.isFree
-                    ? "cursor-not-allowed bg-slate-100 text-slate-400 line-through"
+                    ? "cursor-not-allowed bg-slate-50 text-slate-300 line-through"
                     : isSelected
-                      ? "bg-teal-600 text-white"
-                      : "border border-slate-300 text-slate-700 hover:bg-teal-50"
+                      ? "scale-105 bg-teal-600 text-white shadow-[0_3px_0_#0f766e]"
+                      : "border border-slate-300 text-slate-700 hover:-translate-y-0.5 hover:border-teal-300 hover:bg-teal-50"
                 }`}
               >
                 {new Intl.DateTimeFormat("fa-IR", {
@@ -77,7 +77,7 @@ export default function BookingForm({
       </div>
 
       {selected && (
-        <div className="space-y-4 rounded-xl border border-slate-200 p-4">
+        <div className="card animate-in space-y-4 p-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               نام بیمار
@@ -110,11 +110,7 @@ export default function BookingForm({
               </p>
             )}
           </div>
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full rounded-lg bg-teal-600 px-4 py-2.5 font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
-          >
+          <button type="submit" disabled={pending} className="btn btn-primary w-full">
             {pending ? "در حال ثبت..." : "ثبت نوبت"}
           </button>
         </div>

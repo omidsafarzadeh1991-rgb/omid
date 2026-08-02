@@ -63,11 +63,7 @@ export default async function BookPage({
             <Link
               key={day.toISOString()}
               href={`/book/${doctor.id}?date=${toDateParam(day)}`}
-              className={`rounded-lg px-3 py-1.5 text-sm ${
-                isActive
-                  ? "bg-teal-600 text-white"
-                  : "border border-slate-300 text-slate-700 hover:bg-slate-100"
-              }`}
+              className={isActive ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
             >
               {new Intl.DateTimeFormat("fa-IR", {
                 weekday: "short",

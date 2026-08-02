@@ -23,7 +23,7 @@ export default async function StaffPage() {
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-10">
       <h1 className="text-xl font-bold text-slate-900">مدیریت کارمندان</h1>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="card animate-in p-6">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">
           کارمندان این کلینیک
         </h2>

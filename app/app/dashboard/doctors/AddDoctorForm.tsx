@@ -74,11 +74,7 @@ export default function AddDoctorForm() {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
         </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:opacity-60"
-        >
+        <button type="submit" disabled={pending} className="btn btn-dark">
           {pending ? "در حال افزودن..." : "افزودن پزشک"}
         </button>
       </div>

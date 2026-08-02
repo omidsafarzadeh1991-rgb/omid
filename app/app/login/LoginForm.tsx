@@ -50,11 +50,7 @@ export default function LoginForm() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-lg bg-teal-600 px-4 py-2.5 font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className="btn btn-primary w-full">
         {pending ? "در حال ورود..." : "ورود"}
       </button>
     </form>

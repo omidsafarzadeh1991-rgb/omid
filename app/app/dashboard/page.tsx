@@ -66,7 +66,7 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-10">
       {doctors.length === 0 ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+        <section className="card animate-in p-6 text-sm text-slate-500">
           {isAdmin ? (
             <>
               هنوز پزشکی ثبت نشده.{" "}
@@ -80,17 +80,20 @@ export default async function DashboardPage() {
           )}
         </section>
       ) : (
-        <section className="rounded-2xl bg-teal-600 p-6 shadow-sm">
+        <section
+          className="animate-in rounded-2xl p-6"
+          style={{
+            background: "linear-gradient(135deg, #2dd4bf, #0d9488)",
+            boxShadow:
+              "0 4px 0 #0f766e, 0 20px 40px -16px rgba(13,148,136,0.5)",
+          }}
+        >
           <h2 className="mb-3 text-lg font-semibold text-white">
             ثبت نوبت جدید
           </h2>
           <div className="flex flex-wrap gap-3">
             {doctors.map((doctor) => (
-              <Link
-                key={doctor.id}
-                href={`/book/${doctor.id}`}
-                className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-teal-700 shadow-sm transition hover:bg-teal-50"
-              >
+              <Link key={doctor.id} href={`/book/${doctor.id}`} className="btn btn-light">
                 نوبت برای {doctor.name}
               </Link>
             ))}
@@ -100,10 +103,11 @@ export default async function DashboardPage() {
 
       {isAdmin && (
         <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {stats.map((stat) => (
+          {stats.map((stat, i) => (
             <div
               key={stat.label}
-              className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm"
+              className="card animate-in p-4 text-center"
+              style={{ animationDelay: `${0.05 * i}s` }}
             >
               <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
               <p className="mt-1 text-xs text-slate-500">{stat.label}</p>
@@ -112,7 +116,7 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="card animate-in p-6">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">
           نوبت‌های پیش رو
         </h2>
@@ -147,10 +151,7 @@ export default async function DashboardPage() {
                     await cancelManualAppointmentAction(appt.id);
                   }}
                 >
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                  >
+                  <button type="submit" className="btn btn-danger btn-sm">
                     لغو
                   </button>
                 </form>

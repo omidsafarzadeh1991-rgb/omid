@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 text-center">
-      <div className="space-y-3">
+      <div className="animate-in space-y-3">
         <h1 className="text-3xl font-bold text-slate-900">
           سامانهٔ نوبت‌دهی کلینیک
         </h1>
@@ -13,11 +13,16 @@ export default function HomePage() {
       </div>
       <Link
         href="/login"
-        className="rounded-lg bg-teal-600 px-6 py-3 font-medium text-white shadow-sm transition hover:bg-teal-700"
+        className="btn btn-primary animate-in px-8 py-3.5 text-base"
+        style={{ animationDelay: "0.1s" }}
       >
         ورود به پنل کلینیک
       </Link>
-      <Link href="/superadmin/login" className="text-xs text-slate-400 hover:underline">
+      <Link
+        href="/superadmin/login"
+        className="animate-in text-xs text-slate-400 hover:underline"
+        style={{ animationDelay: "0.2s" }}
+      >
         ورود مدیر کل سامانه
       </Link>
     </main>

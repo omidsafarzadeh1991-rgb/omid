@@ -35,11 +35,7 @@ export default function SuperadminLoginForm() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-lg bg-slate-900 px-4 py-2.5 font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className="btn btn-dark w-full">
         {pending ? "در حال ورود..." : "ورود"}
       </button>
     </form>

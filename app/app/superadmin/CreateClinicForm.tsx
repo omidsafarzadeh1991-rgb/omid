@@ -99,7 +99,7 @@ export default function CreateClinicForm() {
       <button
         type="submit"
         disabled={pending}
-        className="sm:col-span-2 rounded-lg bg-teal-600 px-4 py-2.5 font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
+        className="btn btn-primary sm:col-span-2"
       >
         {pending ? "در حال ساخت..." : "ساخت کلینیک"}
       </button>
