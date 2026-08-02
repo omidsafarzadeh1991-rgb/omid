@@ -1,20 +1,22 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
-import { registerAction, type RegisterFormState } from "@/app/actions/auth";
+import {
+  createClinicAction,
+  type CreateClinicFormState,
+} from "@/app/actions/superadmin";
 
-const initialState: RegisterFormState = undefined;
+const initialState: CreateClinicFormState = undefined;
 
-export default function RegisterForm() {
+export default function CreateClinicForm() {
   const [state, action, pending] = useActionState(
-    registerAction,
+    createClinicAction,
     initialState
   );
 
   return (
-    <form action={action} className="space-y-4" dir="rtl">
-      <div>
+    <form action={action} className="grid gap-4 sm:grid-cols-2" dir="rtl">
+      <div className="sm:col-span-2">
         <label className="mb-1 block text-sm font-medium text-slate-700">
           نام کلینیک
         </label>
@@ -33,7 +35,7 @@ export default function RegisterForm() {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          نام مدیر / منشی اصلی
+          نام مدیر کلینیک
         </label>
         <input
           name="adminName"
@@ -49,7 +51,7 @@ export default function RegisterForm() {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          ایمیل ورود
+          ایمیل ورود مدیر کلینیک
         </label>
         <input
           name="adminEmail"
@@ -65,9 +67,9 @@ export default function RegisterForm() {
         )}
       </div>
 
-      <div>
+      <div className="sm:col-span-2">
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          رمز عبور (حداقل ۸ کاراکتر)
+          رمز عبور اولیهٔ مدیر کلینیک (حداقل ۸ کاراکتر)
         </label>
         <input
           name="adminPassword"
@@ -84,25 +86,23 @@ export default function RegisterForm() {
       </div>
 
       {state?.message && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="sm:col-span-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           {state.message}
+        </p>
+      )}
+      {state?.success && (
+        <p className="sm:col-span-2 rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-800">
+          {state.success}
         </p>
       )}
 
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-teal-600 px-4 py-2.5 font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
+        className="sm:col-span-2 rounded-lg bg-teal-600 px-4 py-2.5 font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
       >
-        {pending ? "در حال ثبت‌نام..." : "ثبت‌نام و ورود"}
+        {pending ? "در حال ساخت..." : "ساخت کلینیک"}
       </button>
-
-      <p className="text-center text-sm text-slate-500">
-        قبلاً حساب دارید؟{" "}
-        <Link href="/login" className="text-teal-700 hover:underline">
-          ورود
-        </Link>
-      </p>
     </form>
   );
 }

@@ -16,19 +16,54 @@ const SOURCE_LABELS: Record<string, string> = {
 export default async function DashboardPage() {
   const session = await requireSession();
 
-  const [clinic, doctors, upcomingAppointments] = await Promise.all([
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60_000);
+  const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60_000);
+
+  const [
+    clinic,
+    doctors,
+    upcomingAppointments,
+    todayCount,
+    weekCount,
+    totalBookedEver,
+  ] = await Promise.all([
     prisma.clinic.findUniqueOrThrow({ where: { id: session.clinicId } }),
     prisma.doctor.findMany({
       where: { clinicId: session.clinicId },
       orderBy: { createdAt: "asc" },
     }),
     prisma.appointment.findMany({
-      where: { clinicId: session.clinicId, startTime: { gte: new Date() } },
+      where: { clinicId: session.clinicId, startTime: { gte: now } },
       orderBy: { startTime: "asc" },
       take: 30,
       include: { doctor: true },
     }),
+    prisma.appointment.count({
+      where: {
+        clinicId: session.clinicId,
+        startTime: { gte: todayStart, lt: todayEnd },
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        clinicId: session.clinicId,
+        startTime: { gte: todayStart, lt: weekEnd },
+      },
+    }),
+    prisma.appointmentLog.count({
+      where: { clinicId: session.clinicId, action: "BOOKED" },
+    }),
   ]);
+
+  const stats = [
+    { label: "پزشکان", value: doctors.length },
+    { label: "نوبت‌های امروز", value: todayCount },
+    { label: "نوبت‌های ۷ روز آینده", value: weekCount },
+    { label: "مجموع نوبت‌های ثبت‌شده", value: totalBookedEver },
+  ];
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-10">
@@ -46,6 +81,37 @@ export default async function DashboardPage() {
           </button>
         </form>
       </header>
+
+      {doctors.length > 0 && (
+        <section className="rounded-2xl bg-teal-600 p-6 shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold text-white">
+            ثبت نوبت جدید
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {doctors.map((doctor) => (
+              <Link
+                key={doctor.id}
+                href={`/book/${doctor.id}`}
+                className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-teal-700 shadow-sm transition hover:bg-teal-50"
+              >
+                نوبت برای {doctor.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm"
+          >
+            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+            <p className="mt-1 text-xs text-slate-500">{stat.label}</p>
+          </div>
+        ))}
+      </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">پزشکان</h2>

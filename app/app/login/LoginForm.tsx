@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import { loginAction, type LoginFormState } from "@/app/actions/auth";
 
 const initialState: LoginFormState = undefined;
@@ -58,13 +57,6 @@ export default function LoginForm() {
       >
         {pending ? "در حال ورود..." : "ورود"}
       </button>
-
-      <p className="text-center text-sm text-slate-500">
-        کلینیک ندارید؟{" "}
-        <Link href="/register" className="text-teal-700 hover:underline">
-          ثبت‌نام کلینیک جدید
-        </Link>
-      </p>
     </form>
   );
 }

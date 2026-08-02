@@ -11,20 +11,15 @@ export default function HomePage() {
           مدیریت نوبت‌های کلینیک شما، بدون تداخل و از هر کانالی.
         </p>
       </div>
-      <div className="flex gap-4">
-        <Link
-          href="/register"
-          className="rounded-lg bg-teal-600 px-6 py-3 font-medium text-white shadow-sm transition hover:bg-teal-700"
-        >
-          ثبت‌نام کلینیک جدید
-        </Link>
-        <Link
-          href="/login"
-          className="rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 shadow-sm transition hover:bg-slate-100"
-        >
-          ورود
-        </Link>
-      </div>
+      <Link
+        href="/login"
+        className="rounded-lg bg-teal-600 px-6 py-3 font-medium text-white shadow-sm transition hover:bg-teal-700"
+      >
+        ورود به پنل کلینیک
+      </Link>
+      <Link href="/superadmin/login" className="text-xs text-slate-400 hover:underline">
+        ورود مدیر کل سامانه
+      </Link>
     </main>
   );
 }
