@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum StaffRole {
+  ADMIN
+  RECEPTIONIST
+}
+
+enum AppointmentSource {
+  MANUAL
+  TELEGRAM
+  BALE
+  WHATSAPP
+  INSTAGRAM
+}
+
+enum AppointmentAction {
+  BOOKED
+  CANCELLED
+}
+
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  staff       StaffUser[]
+  doctors     Doctor[]
+  appointments Appointment[]
+}
+
+model StaffUser {
+  id           String    @id @default(cuid())
+  clinicId     String
+  clinic       Clinic    @relation(fields: [clinicId], references: [id])
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         StaffRole @default(RECEPTIONIST)
+  createdAt    DateTime  @default(now())
+}
+
+model Doctor {
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  name         String
+  workStartMin Int      @default(540) // 09:00 in minutes from midnight
+  workEndMin   Int      @default(1020) // 17:00 in minutes from midnight
+  slotMinutes  Int      @default(30)
+  createdAt    DateTime @default(now())
+
+  appointments Appointment[]
+}
+
+model Appointment {
+  id           String            @id @default(cuid())
+  clinicId     String
+  clinic       Clinic            @relation(fields: [clinicId], references: [id])
+  doctorId     String
+  doctor       Doctor            @relation(fields: [doctorId], references: [id])
+  startTime    DateTime
+  patientName  String
+  patientPhone String
+  source       AppointmentSource @default(MANUAL)
+  createdAt    DateTime          @default(now())
+
+  // A row here means the slot is actively booked. The DB-level unique
+  // constraint is the actual double-booking guard: two concurrent booking
+  // attempts for the same doctor+time race to insert, and only one wins.
+  // Cancelling an appointment deletes this row (see lib/booking.ts) and
+  // is recorded in AppointmentLog for history.
+  @@unique([doctorId, startTime])
+  @@index([clinicId, startTime])
+}
+
+// Append-only audit trail. Rows are never deleted or edited, so clinics
+// always have a full history even after an appointment row is cancelled.
+model AppointmentLog {
+  id            String            @id @default(cuid())
+  clinicId      String
+  doctorId      String
+  startTime     DateTime
+  patientName   String
+  patientPhone  String
+  source        AppointmentSource
+  action        AppointmentAction
+  actorStaffId  String?
+  createdAt     DateTime          @default(now())
+
+  @@index([clinicId, startTime])
+}
