@@ -2,23 +2,23 @@ import { describe, expect, it } from "vitest";
 import { createStaffMember, registerClinic, verifyLogin } from "@/lib/auth";
 
 let counter = 0;
-function uniqueEmail() {
+function uniqueUsername() {
   counter += 1;
-  return `admin${counter}@example.com`;
+  return `admin${counter}`;
 }
 
 describe("registerClinic / verifyLogin", () => {
   it("registers a clinic with its founding account as OWNER and allows login", async () => {
-    const email = uniqueEmail();
+    const username = uniqueUsername();
     const registered = await registerClinic({
       clinicName: "کلینیک تست",
-      adminName: "مدیر تست",
-      adminEmail: email,
+      adminUsername: username,
+      adminFirstName: "مدیر تست",
       adminPassword: "SuperSecret123",
     });
     expect(registered.ok).toBe(true);
 
-    const login = await verifyLogin(email, "SuperSecret123");
+    const login = await verifyLogin(username, "SuperSecret123");
     expect(login.ok).toBe(true);
     if (login.ok) {
       expect(login.role).toBe("OWNER");
@@ -26,64 +26,64 @@ describe("registerClinic / verifyLogin", () => {
   });
 
   it("rejects login with the wrong password", async () => {
-    const email = uniqueEmail();
+    const username = uniqueUsername();
     await registerClinic({
       clinicName: "کلینیک تست ۲",
-      adminName: "مدیر",
-      adminEmail: email,
+      adminUsername: username,
+      adminFirstName: "مدیر",
       adminPassword: "CorrectPassword1",
     });
 
-    const login = await verifyLogin(email, "WrongPassword");
+    const login = await verifyLogin(username, "WrongPassword");
     expect(login.ok).toBe(false);
   });
 
-  it("rejects registering the same admin email twice", async () => {
-    const email = uniqueEmail();
+  it("rejects registering the same admin username twice", async () => {
+    const username = uniqueUsername();
     await registerClinic({
       clinicName: "کلینیک ۱",
-      adminName: "مدیر ۱",
-      adminEmail: email,
+      adminUsername: username,
+      adminFirstName: "مدیر ۱",
       adminPassword: "SuperSecret123",
     });
 
     const second = await registerClinic({
       clinicName: "کلینیک ۲",
-      adminName: "مدیر ۲",
-      adminEmail: email,
+      adminUsername: username,
+      adminFirstName: "مدیر ۲",
       adminPassword: "SuperSecret123",
     });
 
     expect(second.ok).toBe(false);
     if (!second.ok) {
-      expect(second.reason).toBe("EMAIL_TAKEN");
+      expect(second.reason).toBe("USERNAME_TAKEN");
     }
   });
 });
 
 describe("createStaffMember", () => {
   it("adds a receptionist to a clinic who can then log in", async () => {
-    const adminEmail = uniqueEmail();
     const registered = await registerClinic({
       clinicName: "کلینیک با منشی",
-      adminName: "مدیر",
-      adminEmail,
+      adminUsername: uniqueUsername(),
+      adminFirstName: "مدیر",
       adminPassword: "SuperSecret123",
     });
     expect(registered.ok).toBe(true);
     if (!registered.ok) return;
 
-    const receptionistEmail = uniqueEmail();
+    const receptionistUsername = uniqueUsername();
     const created = await createStaffMember({
       clinicId: registered.clinicId,
-      name: "منشی تست",
-      email: receptionistEmail,
+      username: receptionistUsername,
+      firstName: "منشی تست",
       password: "ReceptionistPass1",
       role: "RECEPTIONIST",
+      mustChangePassword: false,
     });
     expect(created.ok).toBe(true);
 
-    const login = await verifyLogin(receptionistEmail, "ReceptionistPass1");
+    const login = await verifyLogin(receptionistUsername, "ReceptionistPass1");
     expect(login.ok).toBe(true);
     if (login.ok) {
       expect(login.role).toBe("RECEPTIONIST");
@@ -91,12 +91,12 @@ describe("createStaffMember", () => {
     }
   });
 
-  it("rejects adding a staff member with a duplicate email", async () => {
-    const adminEmail = uniqueEmail();
+  it("rejects adding a staff member with a duplicate username", async () => {
+    const adminUsername = uniqueUsername();
     const registered = await registerClinic({
       clinicName: "کلینیک دیگر",
-      adminName: "مدیر",
-      adminEmail,
+      adminUsername,
+      adminFirstName: "مدیر",
       adminPassword: "SuperSecret123",
     });
     expect(registered.ok).toBe(true);
@@ -104,15 +104,76 @@ describe("createStaffMember", () => {
 
     const duplicate = await createStaffMember({
       clinicId: registered.clinicId,
-      name: "یک نفر دیگر",
-      email: adminEmail,
+      username: adminUsername,
+      firstName: "یک نفر دیگر",
       password: "AnotherPass1",
       role: "RECEPTIONIST",
     });
 
     expect(duplicate.ok).toBe(false);
     if (!duplicate.ok) {
-      expect(duplicate.reason).toBe("EMAIL_TAKEN");
+      expect(duplicate.reason).toBe("USERNAME_TAKEN");
+    }
+  });
+
+  it("defaults to requiring a password change on first login", async () => {
+    const registered = await registerClinic({
+      clinicName: "کلینیک با اجبار تغییر رمز",
+      adminUsername: uniqueUsername(),
+      adminFirstName: "مدیر",
+      adminPassword: "SuperSecret123",
+    });
+    expect(registered.ok).toBe(true);
+    if (!registered.ok) return;
+
+    const username = uniqueUsername();
+    await createStaffMember({
+      clinicId: registered.clinicId,
+      username,
+      firstName: "منشی جدید",
+      password: "TempPass123",
+      role: "RECEPTIONIST",
+    });
+
+    const login = await verifyLogin(username, "TempPass123");
+    expect(login.ok).toBe(true);
+    if (login.ok) {
+      expect(login.mustChangePassword).toBe(true);
+    }
+  });
+
+  it("rejects login for a deactivated account", async () => {
+    const registered = await registerClinic({
+      clinicName: "کلینیک با حساب غیرفعال",
+      adminUsername: uniqueUsername(),
+      adminFirstName: "مدیر",
+      adminPassword: "SuperSecret123",
+    });
+    expect(registered.ok).toBe(true);
+    if (!registered.ok) return;
+
+    const username = uniqueUsername();
+    const created = await createStaffMember({
+      clinicId: registered.clinicId,
+      username,
+      firstName: "منشی غیرفعال",
+      password: "SomePass123",
+      role: "RECEPTIONIST",
+      mustChangePassword: false,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.staffUser.update({
+      where: { id: created.staffId },
+      data: { active: false },
+    });
+
+    const login = await verifyLogin(username, "SomePass123");
+    expect(login.ok).toBe(false);
+    if (!login.ok) {
+      expect(login.reason).toBe("INACTIVE");
     }
   });
 });

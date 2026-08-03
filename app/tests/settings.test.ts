@@ -9,8 +9,8 @@ async function createClinic() {
   counter += 1;
   const result = await registerClinic({
     clinicName: `Settings Test Clinic ${counter}`,
-    adminName: "مدیر",
-    adminEmail: `settings-admin-${counter}@example.com`,
+    adminUsername: `settings-admin-${counter}`,
+    adminFirstName: "مدیر",
     adminPassword: "SuperSecret123",
   });
   if (!result.ok) throw new Error("setup failed");

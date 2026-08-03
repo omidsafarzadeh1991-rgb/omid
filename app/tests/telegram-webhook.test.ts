@@ -18,8 +18,8 @@ async function createClinicWithTelegramBot() {
   counter += 1;
   const result = await registerClinic({
     clinicName: `Webhook Test Clinic ${counter}`,
-    adminName: "مدیر",
-    adminEmail: `webhook-admin-${counter}@example.com`,
+    adminUsername: `webhook-admin-${counter}`,
+    adminFirstName: "مدیر",
     adminPassword: "SuperSecret123",
   });
   if (!result.ok) throw new Error("setup failed");

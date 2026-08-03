@@ -49,3 +49,6 @@ next-env.d.ts
 
 # local database backups (raw patient data - never commit)
 /backups/
+
+# uploaded staff profile pictures (personal data - never commit)
+/public/uploads/

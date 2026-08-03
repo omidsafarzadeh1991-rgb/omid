@@ -20,8 +20,8 @@ describe("isSetupComplete", () => {
   it("is true once at least one clinic exists", async () => {
     const result = await registerClinic({
       clinicName: "Setup Test Clinic",
-      adminName: "مدیر",
-      adminEmail: `setup-test-${Date.now()}@example.com`,
+      adminUsername: `setup-test-${Date.now()}`,
+      adminFirstName: "مدیر",
       adminPassword: "SuperSecret123",
     });
     if (!result.ok) throw new Error("setup failed");

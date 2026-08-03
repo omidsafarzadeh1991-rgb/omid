@@ -197,7 +197,7 @@ export default async function ConversationsPage({
                       </div>
                     </td>
                     <td className="py-3 text-slate-600">
-                      {conversation.assignedStaff?.name || "—"}
+                      {conversation.assignedStaff?.firstName || "—"}
                     </td>
                     <td className="py-3 text-left">
                       <Link

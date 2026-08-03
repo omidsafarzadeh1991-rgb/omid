@@ -100,7 +100,7 @@ export default async function OwnerPage() {
                   </span>
                   {log.detail && <span className="mr-2 text-xs text-slate-500">{log.detail}</span>}
                   {log.actorStaff && (
-                    <span className="mr-2 text-xs text-slate-400">— {log.actorStaff.name}</span>
+                    <span className="mr-2 text-xs text-slate-400">— {log.actorStaff.firstName}</span>
                   )}
                 </div>
                 <span className="text-xs text-slate-400">

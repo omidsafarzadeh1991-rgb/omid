@@ -10,11 +10,18 @@ import { isRateLimited } from "@/lib/rate-limit";
 const SETUP_ATTEMPT_LIMIT = 5;
 const SETUP_ATTEMPT_WINDOW_MS = 15 * 60_000;
 
+const USERNAME_PATTERN = /^[a-zA-Z0-9_.-]+$/;
+
 const SetupSchema = z.object({
   setupPassword: z.string().min(1, "رمز راه‌اندازی را وارد کنید."),
   clinicName: z.string().trim().min(2, "نام کلینیک باید حداقل ۲ حرف باشد."),
   adminName: z.string().trim().min(2, "نام مدیر باید حداقل ۲ حرف باشد."),
-  adminEmail: z.email("ایمیل معتبر وارد کنید."),
+  adminUsername: z
+    .string()
+    .trim()
+    .min(3, "نام کاربری باید حداقل ۳ کاراکتر باشد.")
+    .regex(USERNAME_PATTERN, "نام کاربری فقط می‌تواند حروف انگلیسی، عدد، نقطه، خط تیره و آندرلاین داشته باشد."),
+  adminEmail: z.union([z.email("ایمیل معتبر وارد کنید."), z.literal("")]).optional(),
   adminPassword: z.string().min(8, "رمز عبور باید حداقل ۸ کاراکتر باشد."),
 });
 
@@ -37,6 +44,7 @@ export async function setupAction(
     setupPassword: formData.get("setupPassword"),
     clinicName: formData.get("clinicName"),
     adminName: formData.get("adminName"),
+    adminUsername: formData.get("adminUsername"),
     adminEmail: formData.get("adminEmail"),
     adminPassword: formData.get("adminPassword"),
   });
@@ -52,9 +60,20 @@ export async function setupAction(
     return { message: "رمز راه‌اندازی نادرست است." };
   }
 
-  const result = await registerClinic(validated.data);
+  const result = await registerClinic({
+    clinicName: validated.data.clinicName,
+    adminUsername: validated.data.adminUsername,
+    adminFirstName: validated.data.adminName,
+    adminEmail: validated.data.adminEmail || undefined,
+    adminPassword: validated.data.adminPassword,
+  });
   if (!result.ok) {
-    return { message: "این ایمیل قبلاً برای یک حساب دیگر استفاده شده است." };
+    return {
+      message:
+        result.reason === "USERNAME_TAKEN"
+          ? "این نام کاربری قبلاً استفاده شده است."
+          : "این ایمیل قبلاً برای یک حساب دیگر استفاده شده است.",
+    };
   }
 
   await createSession({

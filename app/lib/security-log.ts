@@ -18,6 +18,6 @@ export async function listSecurityLog(clinicId: string, limit = 30) {
     where: { clinicId },
     orderBy: { createdAt: "desc" },
     take: limit,
-    include: { actorStaff: { select: { name: true } } },
+    include: { actorStaff: { select: { firstName: true } } },
   });
 }

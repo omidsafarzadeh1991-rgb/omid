@@ -63,12 +63,29 @@ export default function SetupForm() {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          ایمیل ورود مدیر کلینیک
+          نام کاربری ورود (انگلیسی)
+        </label>
+        <input
+          name="adminUsername"
+          required
+          dir="ltr"
+          placeholder="مثلاً: owner"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        />
+        {state?.errors?.adminUsername && (
+          <p className="mt-1 text-xs text-red-600">
+            {state.errors.adminUsername[0]}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">
+          ایمیل (اختیاری)
         </label>
         <input
           name="adminEmail"
           type="email"
-          required
           dir="ltr"
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />

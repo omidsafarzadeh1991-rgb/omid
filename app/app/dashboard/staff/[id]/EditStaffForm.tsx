@@ -2,34 +2,41 @@
 
 import { useActionState } from "react";
 import {
-  createStaffAction,
-  type CreateStaffFormState,
+  updateStaffAction,
+  type UpdateStaffFormState,
 } from "@/app/actions/clinic";
 
-const initialState: CreateStaffFormState = undefined;
+const initialState: UpdateStaffFormState = undefined;
 
-export default function AddStaffForm() {
-  const [state, action, pending] = useActionState(
-    createStaffAction,
-    initialState
-  );
+type StaffFormData = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  birthDate: string;
+  personnelCode: string;
+  hireDate: string;
+  notes: string;
+  role: "ADMIN" | "RECEPTIONIST";
+  profilePictureUrl: string | null;
+};
+
+export default function EditStaffForm({ staff }: { staff: StaffFormData }) {
+  const [state, action, pending] = useActionState(updateStaffAction, initialState);
 
   return (
-    <form
-      action={action}
-      dir="rtl"
-      className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2"
-    >
+    <form action={action} dir="rtl" className="grid gap-3 sm:grid-cols-2">
+      <input type="hidden" name="staffId" value={staff.id} />
+
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600">نام</label>
         <input
           name="firstName"
           required
+          defaultValue={staff.firstName}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
-        {state?.errors?.firstName && (
-          <p className="mt-1 text-xs text-red-600">{state.errors.firstName[0]}</p>
-        )}
       </div>
 
       <div>
@@ -38,30 +45,16 @@ export default function AddStaffForm() {
         </label>
         <input
           name="lastName"
+          defaultValue={staff.lastName}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">
-          نام کاربری ورود
-        </label>
-        <input
-          name="username"
-          required
-          dir="ltr"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-        />
-        {state?.errors?.username && (
-          <p className="mt-1 text-xs text-red-600">{state.errors.username[0]}</p>
-        )}
       </div>
 
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600">نقش</label>
         <select
           name="role"
-          defaultValue="RECEPTIONIST"
+          defaultValue={staff.role}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         >
           <option value="RECEPTIONIST">منشی (فقط ثبت و دیدن نوبت‌ها)</option>
@@ -77,11 +70,9 @@ export default function AddStaffForm() {
           name="email"
           type="email"
           dir="ltr"
+          defaultValue={staff.email}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
-        {state?.errors?.email && (
-          <p className="mt-1 text-xs text-red-600">{state.errors.email[0]}</p>
-        )}
       </div>
 
       <div>
@@ -91,6 +82,7 @@ export default function AddStaffForm() {
         <input
           name="mobile"
           dir="ltr"
+          defaultValue={staff.mobile}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
       </div>
@@ -103,6 +95,7 @@ export default function AddStaffForm() {
           name="birthDate"
           type="date"
           dir="ltr"
+          defaultValue={staff.birthDate}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
       </div>
@@ -114,11 +107,9 @@ export default function AddStaffForm() {
         <input
           name="personnelCode"
           dir="ltr"
+          defaultValue={staff.personnelCode}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
-        {state?.errors?.personnelCode && (
-          <p className="mt-1 text-xs text-red-600">{state.errors.personnelCode[0]}</p>
-        )}
       </div>
 
       <div>
@@ -129,14 +120,23 @@ export default function AddStaffForm() {
           name="hireDate"
           type="date"
           dir="ltr"
+          defaultValue={staff.hireDate}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
       </div>
 
-      <div>
+      <div className="sm:col-span-2">
         <label className="mb-1 block text-xs font-medium text-slate-600">
-          عکس پروفایل (اختیاری)
+          عکس پروفایل (اختیاری - برای تغییر، فایل جدید انتخاب کنید)
         </label>
+        {staff.profilePictureUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={staff.profilePictureUrl}
+            alt=""
+            className="mb-2 h-12 w-12 rounded-full object-cover"
+          />
+        )}
         <input
           name="profilePicture"
           type="file"
@@ -152,31 +152,9 @@ export default function AddStaffForm() {
         <textarea
           name="notes"
           rows={2}
+          defaultValue={staff.notes}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">
-          رمز عبور اولیه (حداقل ۸ کاراکتر)
-        </label>
-        <input
-          name="password"
-          type="password"
-          required
-          dir="ltr"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-        />
-        {state?.errors?.password && (
-          <p className="mt-1 text-xs text-red-600">{state.errors.password[0]}</p>
-        )}
-      </div>
-
-      <div className="flex items-end">
-        <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-          <input type="checkbox" name="mustChangePassword" defaultChecked />
-          کاربر در اولین ورود مجبور به تغییر رمز عبور شود
-        </label>
       </div>
 
       {state?.message && (
@@ -191,7 +169,7 @@ export default function AddStaffForm() {
       )}
 
       <button type="submit" disabled={pending} className="btn btn-dark sm:col-span-2">
-        {pending ? "در حال افزودن..." : "افزودن کارمند"}
+        {pending ? "در حال ذخیره..." : "ذخیرهٔ تغییرات"}
       </button>
     </form>
   );

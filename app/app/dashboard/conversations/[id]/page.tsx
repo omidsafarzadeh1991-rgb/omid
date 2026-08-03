@@ -143,7 +143,7 @@ export default async function ConversationDetailPage({
               <option value="">بدون مسئول</option>
               {staff.map((member) => (
                 <option key={member.id} value={member.id}>
-                  {member.name}
+                  {member.firstName}
                 </option>
               ))}
             </select>
@@ -243,7 +243,7 @@ export default async function ConversationDetailPage({
                     {new Intl.DateTimeFormat("fa-IR", { dateStyle: "short", timeStyle: "short" }).format(
                       note.createdAt
                     )}
-                    {note.authorStaff && ` · ${note.authorStaff.name}`}
+                    {note.authorStaff && ` · ${note.authorStaff.firstName}`}
                   </span>
                 </div>
                 <p className="text-sm text-slate-700">{note.text}</p>

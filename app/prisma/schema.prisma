@@ -26,6 +26,7 @@ enum StaffRole {
 enum SecurityEventType {
   LOGIN_SUCCESS
   LOGIN_FAILED
+  LOGOUT
   BOT_TOKEN_UPDATED
   SMS_SETTINGS_UPDATED
   BACKUP_CREATED
@@ -219,10 +220,27 @@ model StaffUser {
   id           String    @id @default(cuid())
   clinicId     String
   clinic       Clinic    @relation(fields: [clinicId], references: [id])
-  name         String
-  email        String    @unique
+  // Login identifier now - not the email, which is optional contact info.
+  username     String    @unique
+  firstName    String
+  lastName     String?
+  email        String?   @unique
+  mobile       String?
+  birthDate    DateTime?
+  // Separate from username: an internal payroll/reference code, not used to log in.
+  personnelCode String?  @unique
+  hireDate     DateTime?
+  notes        String?
+  profilePictureUrl String?
   passwordHash String
   role         StaffRole @default(RECEPTIONIST)
+  active       Boolean   @default(true)
+  // Forces a password-change screen right after next successful login.
+  mustChangePassword Boolean @default(false)
+  // Persisted history of wrong-password attempts, separate from the
+  // in-memory time-windowed rate limiter in lib/rate-limit.ts - reset to 0
+  // on a successful login.
+  failedLoginCount Int @default(0)
   createdAt    DateTime  @default(now())
 
   assignedConversations BotConversation[]
