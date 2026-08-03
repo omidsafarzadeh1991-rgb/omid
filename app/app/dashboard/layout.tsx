@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { logoutAction } from "@/app/actions/auth";
+import { countNeedsFollowUp, sweepStaleConversations } from "@/lib/conversations";
 import SidebarNav from "./SidebarNav";
 
 export default async function DashboardLayout({
@@ -13,6 +14,9 @@ export default async function DashboardLayout({
     where: { id: session.clinicId },
   });
   const initial = clinic.name.trim().charAt(0) || "ک";
+
+  await sweepStaleConversations(session.clinicId);
+  const needsFollowUpCount = await countNeedsFollowUp(session.clinicId);
 
   return (
     <div className="flex min-h-screen flex-1 flex-col sm:flex-row" dir="rtl">
@@ -32,7 +36,7 @@ export default async function DashboardLayout({
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col">
-          <SidebarNav isAdmin={session.role === "ADMIN"} />
+          <SidebarNav isAdmin={session.role === "ADMIN"} needsFollowUpCount={needsFollowUpCount} />
         </div>
 
         <form action={logoutAction} className="relative z-10">

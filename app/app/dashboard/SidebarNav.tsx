@@ -35,6 +35,16 @@ function StaffIcon() {
   );
 }
 
+function ConversationsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 5h16v11H9l-4 4V5z" />
+      <line x1="8" y1="9" x2="16" y2="9" />
+      <line x1="8" y1="12.5" x2="13" y2="12.5" />
+    </svg>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -46,12 +56,19 @@ function SettingsIcon() {
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "داشبورد", Icon: DashboardIcon, adminOnly: false },
+  { href: "/dashboard/conversations", label: "مکالمات", Icon: ConversationsIcon, adminOnly: false },
   { href: "/dashboard/doctors", label: "پزشکان", Icon: DoctorIcon, adminOnly: true },
   { href: "/dashboard/staff", label: "کارمندان", Icon: StaffIcon, adminOnly: true },
   { href: "/dashboard/settings", label: "تنظیمات بات‌ها", Icon: SettingsIcon, adminOnly: true },
 ];
 
-export default function SidebarNav({ isAdmin }: { isAdmin: boolean }) {
+export default function SidebarNav({
+  isAdmin,
+  needsFollowUpCount,
+}: {
+  isAdmin: boolean;
+  needsFollowUpCount: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -70,6 +87,11 @@ export default function SidebarNav({ isAdmin }: { isAdmin: boolean }) {
           >
             <item.Icon />
             {item.label}
+            {item.href === "/dashboard/conversations" && needsFollowUpCount > 0 && (
+              <span className="mr-auto rounded-full bg-red-500/90 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {needsFollowUpCount}
+              </span>
+            )}
           </Link>
         );
       })}

@@ -1,10 +1,10 @@
 import "server-only";
 import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
-import { bookAppointment, getSlotsForDay } from "@/lib/booking";
+import { bookAppointment, cancelAppointment, getSlotsForDay } from "@/lib/booking";
 import { formatSchedules } from "@/lib/weekdays";
 import { formatToman } from "@/lib/format";
-import type { BotPlatform } from "@/generated/prisma/client";
+import type { BotPlatform, ConversationStatus } from "@/generated/prisma/client";
 
 const MODEL = process.env.AI_MODEL || "openai/gpt-4o-mini";
 const BASE_URL = process.env.AI_BASE_URL || "https://openrouter.ai/api/v1";
@@ -57,6 +57,52 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           serviceName: { type: "string", description: "نام خدمت، در صورت وجود" },
         },
         required: ["doctorId", "date", "time", "patientName", "patientPhone"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_my_appointments",
+      description:
+        "نوبت‌های آیندهٔ یک بیمار را با شمارهٔ تماسش پیدا می‌کند. برای «نوبتم چه ساعتیه» یا قبل از لغو نوبت از این ابزار استفاده کن؛ هرگز حدس نزن.",
+      parameters: {
+        type: "object",
+        properties: {
+          patientPhone: { type: "string", description: "شمارهٔ موبایل بیمار" },
+        },
+        required: ["patientPhone"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cancel_appointment",
+      description:
+        "یک نوبت مشخص را لغو می‌کند. فقط روی appointmentId ای استفاده کن که از find_my_appointments برای همان شمارهٔ تماس گرفته‌ای.",
+      parameters: {
+        type: "object",
+        properties: {
+          appointmentId: { type: "string" },
+          patientPhone: { type: "string", description: "همان شمارهٔ تماسی که نوبت را با آن پیدا کردی" },
+        },
+        required: ["appointmentId", "patientPhone"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "escalate_to_staff",
+      description:
+        "وقتی درخواست بیمار خارج از توان تو است یا نیاز به تماس مستقیم کارمندان کلینیک دارد (شکایت، درخواست خاص، سوال نامطمئن)، این ابزار را با یک دلیل کوتاه صدا بزن تا کارمندان کلینیک پیگیری کنند.",
+      parameters: {
+        type: "object",
+        properties: {
+          reason: { type: "string", description: "خلاصهٔ کوتاه دلیل ارجاع به کارمندان" },
+        },
+        required: ["reason"],
       },
     },
   },
@@ -165,6 +211,52 @@ async function executeTool(
     return JSON.stringify({ ok: false, error: messages[result.reason] });
   }
 
+  if (name === "find_my_appointments") {
+    const patientPhone = String(input.patientPhone ?? "").trim();
+    if (!patientPhone) return JSON.stringify({ error: "شمارهٔ تماس نامعتبر است." });
+
+    const appointments = await prisma.appointment.findMany({
+      where: { clinicId, patientPhone, startTime: { gt: new Date() } },
+      orderBy: { startTime: "asc" },
+      include: { doctor: true },
+    });
+
+    return JSON.stringify(
+      appointments.map((a) => ({
+        appointmentId: a.id,
+        doctorName: a.doctor.name,
+        date: a.startTime.toLocaleDateString("fa-IR-u-ca-gregory"),
+        time: a.startTime.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit", hour12: false }),
+        serviceName: a.serviceName ?? undefined,
+      }))
+    );
+  }
+
+  if (name === "cancel_appointment") {
+    const appointmentId = String(input.appointmentId ?? "");
+    const patientPhone = String(input.patientPhone ?? "").trim();
+
+    const appointment = await prisma.appointment.findFirst({
+      where: { id: appointmentId, clinicId },
+    });
+    if (!appointment || appointment.patientPhone !== patientPhone) {
+      return JSON.stringify({
+        ok: false,
+        error: "نوبتی با این مشخصات پیدا نشد. دوباره از find_my_appointments استفاده کن.",
+      });
+    }
+
+    const result = await cancelAppointment(clinicId, appointmentId);
+    if (!result.ok) {
+      return JSON.stringify({ ok: false, error: "این نوبت قبلاً لغو یا حذف شده است." });
+    }
+    return JSON.stringify({ ok: true });
+  }
+
+  if (name === "escalate_to_staff") {
+    return JSON.stringify({ ok: true });
+  }
+
   return JSON.stringify({ error: "ابزار ناشناخته." });
 }
 
@@ -181,9 +273,13 @@ function buildSystemPrompt(clinicName: string, adminInstructions: string): strin
   const fixedRules = [
     `تو منشی هوش مصنوعی «${clinicName}» هستی و با بیماران در تلگرام گفتگو می‌کنی.`,
     `امروز ${todayLabel} (${isoToday}) است؛ تاریخ‌های نسبی مثل «فردا» یا «چهارشنبه» را بر این اساس به فرمت YYYY-MM-DD تبدیل کن.`,
+    "اول نیت پیام بیمار را تشخیص بده - رزرو نوبت جدید، سوال دربارهٔ پزشکان/تخصص‌ها/خدمات/قیمت‌ها/ساعات کاری، لغو نوبت، یا پیگیری نوبت خودش - و مستقیم مسیر همان نیت را دنبال کن؛ در ابتدای مکالمه یک فرم یا سوالات ثابت (مثل نام و شماره) نپرس.",
     "فقط دربارهٔ نوبت‌دهی، پزشکان، تخصص‌ها، خدمات، قیمت‌ها و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
     "برای دیدن پزشکان، تخصص‌ها، خدمات و قیمت‌ها از list_doctors و برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت یا قیمت یک خدمت حدس نزن.",
+    "هرگز در همان پیام اول و بدون نیاز واقعی نام یا شمارهٔ تماس بیمار را نخواه. شمارهٔ تماس را فقط درست قبل از ثبت نهایی نوبت (اگر نداری) با دقیقاً همین جمله بپرس: «برای اینکه در صورت نیاز بتونیم تماس بگیریم، لطفاً شماره‌تون رو وارد کنید.»",
     "به محض این‌که پزشک، تاریخ، ساعت، نام و شمارهٔ تماس بیمار مشخص شد، بلافاصله با book_appointment نوبت را ثبت کن؛ منتظر تاییدِ اضافی نمان.",
+    "برای «نوبتم چه ساعتیه» یا «نوبتم رو لغو کن»، اول با find_my_appointments (با شمارهٔ تماس بیمار) نوبت او را پیدا کن - اگر شماره را نداری مودبانه بپرس: «برای پیدا کردن نوبت شما، شماره تماسی که با آن نوبت گرفته‌اید را بفرمایید.» - سپس در صورت لغو، از cancel_appointment روی همان appointmentId استفاده کن؛ هرگز حدس نزن.",
+    "اگر درخواست بیمار خارج از توان توست یا نیاز به تماس مستقیم کارمندان کلینیک دارد (شکایت، درخواست خاص، سوال نامطمئن)، مودبانه بگو کارمندان کلینیک پیگیری می‌کنند و از escalate_to_staff با یک دلیل کوتاه استفاده کن.",
     "پاسخ‌هایت کوتاه، مودبانه، و کاملاً فارسی باشد.",
   ].join("\n");
 
@@ -246,6 +342,14 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
   const system = buildSystemPrompt(input.clinicName, input.assistantInstructions ?? "");
   let replyText = "";
 
+  // Every successful turn ends the conversation resting in one of these
+  // states, which also naturally reopens anything staff had marked closed/
+  // booked/incomplete if the patient writes again.
+  let outcomeStatus: ConversationStatus = "WAITING_PATIENT";
+  let capturedName: string | undefined;
+  let capturedPhone: string | undefined;
+  let escalationReason: string | undefined;
+
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
     const response = await client.chat.completions.create({
       model: MODEL,
@@ -271,15 +375,60 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
         string,
         unknown
       >;
+
+      if (toolCall.function.name === "book_appointment") {
+        if (typeof toolInput.patientName === "string" && toolInput.patientName.trim()) {
+          capturedName = toolInput.patientName.trim();
+        }
+        if (typeof toolInput.patientPhone === "string" && toolInput.patientPhone.trim()) {
+          capturedPhone = toolInput.patientPhone.trim();
+        }
+      }
+      if (
+        (toolCall.function.name === "find_my_appointments" ||
+          toolCall.function.name === "cancel_appointment") &&
+        typeof toolInput.patientPhone === "string" &&
+        toolInput.patientPhone.trim()
+      ) {
+        capturedPhone = toolInput.patientPhone.trim();
+      }
+
       const result = await executeTool(input.clinicId, toolCall.function.name, toolInput);
       history.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+
+      if (toolCall.function.name === "book_appointment") {
+        const parsed = JSON.parse(result) as { ok: boolean };
+        if (parsed.ok) outcomeStatus = "BOOKED";
+      }
+      if (toolCall.function.name === "escalate_to_staff") {
+        outcomeStatus = "WAITING_CLINIC";
+        escalationReason = typeof toolInput.reason === "string" ? toolInput.reason : undefined;
+      }
     }
   }
 
   await prisma.botConversation.update({
     where: { id: conversation.id },
-    data: { history: JSON.stringify(history) },
+    data: {
+      history: JSON.stringify(history),
+      status: outcomeStatus,
+      lastMessageAt: new Date(),
+      lastMessageText: replyText || undefined,
+      ...(capturedName ? { patientName: capturedName } : {}),
+      ...(capturedPhone ? { patientPhone: capturedPhone } : {}),
+    },
   });
+
+  if (escalationReason) {
+    await prisma.conversationNote.create({
+      data: {
+        clinicId: input.clinicId,
+        conversationId: conversation.id,
+        type: "NOTE",
+        text: `ارجاع خودکار توسط بات: ${escalationReason}`,
+      },
+    });
+  }
 
   return replyText || "متوجه نشدم، می‌شود دوباره توضیح دهید؟";
 }

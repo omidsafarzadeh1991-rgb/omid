@@ -35,6 +35,22 @@ enum BotPlatform {
   BALE
 }
 
+enum ConversationStatus {
+  NEW
+  IN_REVIEW
+  WAITING_PATIENT
+  WAITING_CLINIC
+  BOOKED
+  INCOMPLETE
+  CLOSED
+}
+
+enum ConversationNoteType {
+  NOTE
+  CALL_OUTCOME
+  STATUS_CHANGE
+}
+
 model Clinic {
   id        String   @id @default(cuid())
   name      String
@@ -51,6 +67,7 @@ model Clinic {
   appointments Appointment[]
   botIntegrations BotIntegration[]
   botConversations BotConversation[]
+  conversationNotes ConversationNote[]
   services    Service[]
   specialties Specialty[]
 }
@@ -78,7 +95,9 @@ model BotIntegration {
 // Per-chat conversation history with the AI receptionist, so multi-turn
 // context survives across separate webhook requests (each incoming message
 // is its own HTTP call). history is a JSON-serialized array of Anthropic
-// message params.
+// message params. Also doubles as the patient-follow-up record shown in
+// the staff "مکالمات" panel, so no inbound message from any channel is
+// ever silently lost.
 model BotConversation {
   id             String      @id @default(cuid())
   clinicId       String
@@ -86,10 +105,44 @@ model BotConversation {
   platform       BotPlatform
   externalChatId String
   history        String      @default("[]")
-  updatedAt      DateTime    @updatedAt
-  createdAt      DateTime    @default(now())
+
+  patientName     String?
+  patientPhone    String?
+  status          ConversationStatus @default(NEW)
+  assignedStaffId String?
+  assignedStaff   StaffUser?         @relation(fields: [assignedStaffId], references: [id])
+  // Timestamp/text of the most recent message in either direction (patient
+  // or bot). Deliberately separate from updatedAt, which also changes when
+  // staff edit status/notes - the follow-up/incomplete timers must only
+  // move on real conversation activity.
+  lastMessageAt   DateTime           @default(now())
+  lastMessageText String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  notes ConversationNote[]
 
   @@unique([clinicId, platform, externalChatId])
+  @@index([clinicId, status])
+}
+
+// Append-only log of staff follow-up actions on a conversation (manual
+// notes, call outcomes, status changes) - never edited or deleted, so the
+// full follow-up history survives even after the conversation is closed.
+model ConversationNote {
+  id             String               @id @default(cuid())
+  clinicId       String
+  clinic         Clinic               @relation(fields: [clinicId], references: [id])
+  conversationId String
+  conversation   BotConversation      @relation(fields: [conversationId], references: [id])
+  type           ConversationNoteType
+  text           String
+  authorStaffId  String?
+  authorStaff    StaffUser?           @relation(fields: [authorStaffId], references: [id])
+  createdAt      DateTime             @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 model StaffUser {
@@ -101,6 +154,9 @@ model StaffUser {
   passwordHash String
   role         StaffRole @default(RECEPTIONIST)
   createdAt    DateTime  @default(now())
+
+  assignedConversations BotConversation[]
+  conversationNotes     ConversationNote[]
 }
 
 model Doctor {

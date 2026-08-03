@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { bookAppointment } from "@/lib/booking";
 import { createTestClinicWithDoctor } from "./helpers";
 
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
@@ -225,5 +226,173 @@ describe("runAssistantTurn", () => {
     expect(systemContent).toContain("آدرس مطب: خیابان ولیعصر، پلاک ۱۲.");
     expect(systemContent).toContain("هرگز مشاورهٔ پزشکی یا تشخیص نده");
     expect(systemContent).toContain("همیشه قوانین بالا اولویت دارند");
+  });
+
+  async function getConversation(clinicId: string, externalChatId: string) {
+    return prisma.botConversation.findUnique({
+      where: {
+        clinicId_platform_externalChatId: {
+          clinicId,
+          platform: "TELEGRAM",
+          externalChatId,
+        },
+      },
+    });
+  }
+
+  it("marks the conversation record as BOOKED and remembers the patient's name/phone after a successful booking", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+
+    mockCreate.mockImplementationOnce(async () =>
+      toolCallResponse("book_appointment", {
+        doctorId: doctor.id,
+        date: isoDate(startTime),
+        time: "09:00",
+        patientName: "سارا محمدی",
+        patientPhone: "09121111111",
+      })
+    );
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("نوبت شما ثبت شد."));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "555",
+      userText: "می‌خوام نوبت بگیرم",
+    });
+
+    const conversation = await getConversation(clinic.id, "555");
+    expect(conversation?.status).toBe("BOOKED");
+    expect(conversation?.patientName).toBe("سارا محمدی");
+    expect(conversation?.patientPhone).toBe("09121111111");
+  });
+
+  it("finds and cancels an appointment by phone via find_my_appointments + cancel_appointment", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+    const booking = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime,
+      patientName: "رضا کریمی",
+      patientPhone: "09123334444",
+      source: "TELEGRAM",
+    });
+    if (!booking.ok) throw new Error("setup booking failed");
+
+    mockCreate.mockImplementationOnce(async () =>
+      toolCallResponse("find_my_appointments", { patientPhone: "09123334444" })
+    );
+    mockCreate.mockImplementationOnce(async () =>
+      toolCallResponse("cancel_appointment", {
+        appointmentId: booking.appointmentId,
+        patientPhone: "09123334444",
+      })
+    );
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("نوبت شما لغو شد."));
+
+    const reply = await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "666",
+      userText: "می‌خوام نوبتمو لغو کنم",
+    });
+
+    expect(reply).toContain("لغو شد");
+    const remaining = await prisma.appointment.findFirst({ where: { id: booking.appointmentId } });
+    expect(remaining).toBeNull();
+  });
+
+  it("refuses to cancel an appointment when the phone number doesn't match", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+    const booking = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime,
+      patientName: "محمد علوی",
+      patientPhone: "09120009999",
+      source: "TELEGRAM",
+    });
+    if (!booking.ok) throw new Error("setup booking failed");
+
+    mockCreate.mockImplementationOnce(async () =>
+      toolCallResponse("cancel_appointment", {
+        appointmentId: booking.appointmentId,
+        patientPhone: "09110000000",
+      })
+    );
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("نوبتی پیدا نشد."));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "777",
+      userText: "لغو نوبت با شماره اشتباه",
+    });
+
+    const stillBooked = await prisma.appointment.findFirst({ where: { id: booking.appointmentId } });
+    expect(stillBooked).not.toBeNull();
+  });
+
+  it("sets status to WAITING_CLINIC and logs a note when the AI escalates to staff", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    void doctor;
+
+    mockCreate.mockImplementationOnce(async () =>
+      toolCallResponse("escalate_to_staff", { reason: "بیمار شکایت دارد" })
+    );
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("کارمندان کلینیک با شما تماس می‌گیرند."));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "888",
+      userText: "شکایت دارم",
+    });
+
+    const conversation = await getConversation(clinic.id, "888");
+    expect(conversation?.status).toBe("WAITING_CLINIC");
+
+    const notes = await prisma.conversationNote.findMany({ where: { conversationId: conversation!.id } });
+    expect(notes).toHaveLength(1);
+    expect(notes[0].text).toContain("بیمار شکایت دارد");
+  });
+
+  it("reopens a closed conversation to WAITING_PATIENT when the patient writes again", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    void doctor;
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("سلام! چطور کمکتون کنم؟"));
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "999",
+      userText: "سلام",
+    });
+
+    const conversation = await getConversation(clinic.id, "999");
+    await prisma.botConversation.update({
+      where: { id: conversation!.id },
+      data: { status: "CLOSED" },
+    });
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("بله در خدمتم."));
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "999",
+      userText: "دوباره سوال دارم",
+    });
+
+    const reopened = await getConversation(clinic.id, "999");
+    expect(reopened?.status).toBe("WAITING_PATIENT");
   });
 });
