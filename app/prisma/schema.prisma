@@ -38,6 +38,18 @@ enum SmsReminderType {
   REMINDER_2_4H
 }
 
+enum FaqCategory {
+  ADDRESS
+  WORKING_HOURS
+  INSURANCE
+  PAYMENT
+  BOOKING
+  DOCTORS
+  SERVICES
+  CLINIC_RULES
+  OTHER
+}
+
 enum AppointmentSource {
   MANUAL
   TELEGRAM
@@ -93,6 +105,8 @@ model Clinic {
   specialties Specialty[]
   smsSettings SmsSettings?
   securityLogs SecurityLog[]
+  faqEntries  FaqEntry[]
+  clinicInfo  ClinicInfo?
 }
 
 // Append-only security/audit trail, visible only to OWNER.
@@ -141,6 +155,49 @@ model AppointmentReminder {
   errorMessage  String?
 
   @@unique([appointmentId, type])
+}
+
+// Cheap, deterministic answers checked before ever calling the paid AI
+// model (see lib/knowledge.ts) - keyword-matched, no AI involved.
+model FaqEntry {
+  id        String      @id @default(cuid())
+  clinicId  String
+  clinic    Clinic      @relation(fields: [clinicId], references: [id])
+  category  FaqCategory @default(OTHER)
+  question  String
+  answer    String
+  // Comma-separated match terms, checked as substrings of the normalized
+  // incoming message - no separate synonym-management UI needed.
+  keywords  String
+  priority  Int         @default(50)
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([clinicId, active])
+}
+
+// One row per clinic (there is only ever one clinic per install). Fed into
+// the AI's system prompt so it never has to invent an address, phone
+// number, or insurance answer - and also answers simple keyword questions
+// (e.g. "پارکینگ دارید؟") without calling the AI at all.
+model ClinicInfo {
+  id                 String   @id @default(cuid())
+  clinicId           String   @unique
+  clinic             Clinic   @relation(fields: [clinicId], references: [id])
+  address            String?
+  phone              String?
+  whatsapp           String?
+  contactEmail       String?
+  website            String?
+  instagram          String?
+  googleMapUrl       String?
+  workingHoursNote   String?
+  parkingAvailable   Boolean  @default(false)
+  parkingDescription String?
+  insuranceNote      String?
+  updatedAt          DateTime @updatedAt
+  createdAt          DateTime @default(now())
 }
 
 // Per-clinic messenger bot connection. The token is encrypted at rest

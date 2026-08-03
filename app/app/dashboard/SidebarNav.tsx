@@ -63,10 +63,20 @@ function ShieldIcon() {
   );
 }
 
+function KnowledgeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 4C9.5 2.5 6 2.5 4 4v14c2-1.5 5.5-1.5 8 0" />
+      <path d="M12 4c2.5-1.5 6-1.5 8 0v14c-2-1.5-5.5-1.5-8 0V4z" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { href: "/dashboard", label: "داشبورد", Icon: DashboardIcon, adminOnly: false, ownerOnly: false },
   { href: "/dashboard/conversations", label: "مکالمات", Icon: ConversationsIcon, adminOnly: false, ownerOnly: false },
   { href: "/dashboard/doctors", label: "پزشکان", Icon: DoctorIcon, adminOnly: true, ownerOnly: false },
+  { href: "/dashboard/knowledge", label: "مرکز دانش", Icon: KnowledgeIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/staff", label: "کارمندان", Icon: StaffIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/settings", label: "تنظیمات بات‌ها", Icon: SettingsIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/owner", label: "امنیت و بک‌آپ", Icon: ShieldIcon, adminOnly: true, ownerOnly: true },

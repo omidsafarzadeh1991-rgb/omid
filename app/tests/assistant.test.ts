@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { bookAppointment } from "@/lib/booking";
+import { createFaqEntry, saveClinicInfo } from "@/lib/knowledge";
 import { createTestClinicWithDoctor } from "./helpers";
 
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
@@ -427,5 +428,59 @@ describe("runAssistantTurn", () => {
 
     const reopened = await getConversation(clinic.id, "999");
     expect(reopened?.status).toBe("WAITING_PATIENT");
+  });
+
+  it("answers from a matching FAQ without ever calling the AI model", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await createFaqEntry(clinic.id, {
+      category: "ADDRESS",
+      question: "آدرس کجاست؟",
+      answer: "خیابان ولیعصر، پلاک ۱۰",
+      keywords: "آدرس, نشانی",
+      priority: 50,
+    });
+
+    const reply = await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "faq-1",
+      userText: "سلام آدرستون کجاست؟",
+    });
+
+    expect(reply).toBe("خیابان ولیعصر، پلاک ۱۰");
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    const conversation = await getConversation(clinic.id, "faq-1");
+    expect(conversation?.lastMessageText).toBe("خیابان ولیعصر، پلاک ۱۰");
+  });
+
+  it("includes saved clinic info in the system prompt when the AI is called", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await saveClinicInfo(clinic.id, {
+      address: "خیابان آزادی، پلاک ۵",
+      phone: null,
+      whatsapp: null,
+      contactEmail: null,
+      website: null,
+      instagram: null,
+      googleMapUrl: null,
+      workingHoursNote: null,
+      parkingAvailable: false,
+      parkingDescription: null,
+      insuranceNote: null,
+    });
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("سلام! چطور کمکتون کنم؟"));
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "clinic-info-1",
+      userText: "سلام",
+    });
+
+    const call = mockCreate.mock.calls[0][0] as { messages: { content: string }[] };
+    expect(call.messages[0].content).toContain("خیابان آزادی، پلاک ۵");
   });
 });

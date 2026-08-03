@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { bookAppointment, cancelAppointment, getSlotsForDay } from "@/lib/booking";
 import { formatSchedules } from "@/lib/weekdays";
 import { formatToman } from "@/lib/format";
+import { matchFaq, getClinicInfo, formatClinicInfoForPrompt } from "@/lib/knowledge";
 import type { BotPlatform, ConversationStatus } from "@/generated/prisma/client";
 
 const MODEL = process.env.AI_MODEL || "openai/gpt-4o-mini";
@@ -272,7 +273,8 @@ async function executeTool(
 function buildSystemPrompt(
   clinicName: string,
   adminInstructions: string,
-  doctorsSnapshotJson: string
+  doctorsSnapshotJson: string,
+  clinicInfoText: string
 ): string {
   const now = new Date();
   const todayLabel = now.toLocaleDateString("fa-IR-u-ca-gregory", {
@@ -290,6 +292,13 @@ function buildSystemPrompt(
     "فقط دربارهٔ نوبت‌دهی، پزشکان، تخصص‌ها، خدمات، قیمت‌ها و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
     `فهرست فعلی و به‌روزِ پزشکان این کلینیک (همین الان از دیتابیس خوانده شده): ${doctorsSnapshotJson}`,
     "این فهرست همیشه معتبرترین منبع است؛ حتی اگر قبلاً در همین گفتگو دربارهٔ پزشکان صحبت کرده‌ای (مثلاً کمتر بودن تعداد پزشکان)، همیشه همین فهرست بالا را ملاک بگذار، چون ممکن است از آن موقع پزشک جدیدی اضافه شده باشد. اگر باز هم لازم بود می‌توانی list_doctors را دوباره صدا بزنی.",
+    ...(clinicInfoText
+      ? [
+          `اطلاعات ثابت این کلینیک (فقط همین‌ها را بگو، هیچ‌وقت آدرس/تلفن/ساعت/بیمه را حدس نزن یا از خودت نساز):\n${clinicInfoText}`,
+        ]
+      : [
+          "اطلاعات ثابتی مثل آدرس/تلفن/ساعت کاری/بیمه هنوز در سیستم ثبت نشده؛ اگر پرسیدند، هرگز حدس نزن یا از خودت نساز، فقط مودبانه بگو برای این اطلاعات مستقیم با مطب تماس بگیرند.",
+        ]),
     "برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت یا قیمت یک خدمت حدس نزن.",
     "هرگز در همان پیام اول و بدون نیاز واقعی نام یا شمارهٔ تماس بیمار را نخواه. شمارهٔ تماس را فقط درست قبل از ثبت نهایی نوبت (اگر نداری) با دقیقاً همین جمله بپرس: «برای اینکه در صورت نیاز بتونیم تماس بگیریم، لطفاً شماره‌تون رو وارد کنید.»",
     "به محض این‌که پزشک، تاریخ، ساعت، نام و شمارهٔ تماس بیمار مشخص شد، بلافاصله با book_appointment نوبت را ثبت کن؛ منتظر تاییدِ اضافی نمان.",
@@ -353,13 +362,6 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
   const history: ChatMessage[] = JSON.parse(conversation.history);
   history.push({ role: "user", content: input.userText });
 
-  const client = getClient();
-  const doctorsSnapshot = await fetchDoctorsSnapshot(input.clinicId);
-  const system = buildSystemPrompt(
-    input.clinicName,
-    input.assistantInstructions ?? "",
-    JSON.stringify(doctorsSnapshot)
-  );
   let replyText = "";
 
   // Every successful turn ends the conversation resting in one of these
@@ -370,59 +372,78 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
   let capturedPhone: string | undefined;
   let escalationReason: string | undefined;
 
-  for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-    const response = await client.chat.completions.create({
-      model: MODEL,
-      messages: [{ role: "system", content: system }, ...history],
-      tools: TOOLS,
-    });
+  // Cheap, deterministic answers are checked before ever calling the paid
+  // AI model - if an admin-managed FAQ matches, the AI is skipped entirely.
+  const faqMatch = await matchFaq(input.clinicId, input.userText);
 
-    const message = response.choices[0].message;
-    history.push({
-      role: "assistant",
-      content: message.content,
-      tool_calls: message.tool_calls,
-    } as ChatMessage);
-    replyText = (message.content ?? "").trim();
+  if (faqMatch) {
+    replyText = faqMatch.answer;
+    history.push({ role: "assistant", content: replyText } as ChatMessage);
+  } else {
+    const client = getClient();
+    const doctorsSnapshot = await fetchDoctorsSnapshot(input.clinicId);
+    const clinicInfo = await getClinicInfo(input.clinicId);
+    const system = buildSystemPrompt(
+      input.clinicName,
+      input.assistantInstructions ?? "",
+      JSON.stringify(doctorsSnapshot),
+      formatClinicInfoForPrompt(clinicInfo)
+    );
 
-    if (!message.tool_calls || message.tool_calls.length === 0) {
-      break;
-    }
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+      const response = await client.chat.completions.create({
+        model: MODEL,
+        messages: [{ role: "system", content: system }, ...history],
+        tools: TOOLS,
+      });
 
-    for (const toolCall of message.tool_calls) {
-      if (toolCall.type !== "function") continue;
-      const toolInput = JSON.parse(toolCall.function.arguments || "{}") as Record<
-        string,
-        unknown
-      >;
+      const message = response.choices[0].message;
+      history.push({
+        role: "assistant",
+        content: message.content,
+        tool_calls: message.tool_calls,
+      } as ChatMessage);
+      replyText = (message.content ?? "").trim();
 
-      if (toolCall.function.name === "book_appointment") {
-        if (typeof toolInput.patientName === "string" && toolInput.patientName.trim()) {
-          capturedName = toolInput.patientName.trim();
+      if (!message.tool_calls || message.tool_calls.length === 0) {
+        break;
+      }
+
+      for (const toolCall of message.tool_calls) {
+        if (toolCall.type !== "function") continue;
+        const toolInput = JSON.parse(toolCall.function.arguments || "{}") as Record<
+          string,
+          unknown
+        >;
+
+        if (toolCall.function.name === "book_appointment") {
+          if (typeof toolInput.patientName === "string" && toolInput.patientName.trim()) {
+            capturedName = toolInput.patientName.trim();
+          }
+          if (typeof toolInput.patientPhone === "string" && toolInput.patientPhone.trim()) {
+            capturedPhone = toolInput.patientPhone.trim();
+          }
         }
-        if (typeof toolInput.patientPhone === "string" && toolInput.patientPhone.trim()) {
+        if (
+          (toolCall.function.name === "find_my_appointments" ||
+            toolCall.function.name === "cancel_appointment") &&
+          typeof toolInput.patientPhone === "string" &&
+          toolInput.patientPhone.trim()
+        ) {
           capturedPhone = toolInput.patientPhone.trim();
         }
-      }
-      if (
-        (toolCall.function.name === "find_my_appointments" ||
-          toolCall.function.name === "cancel_appointment") &&
-        typeof toolInput.patientPhone === "string" &&
-        toolInput.patientPhone.trim()
-      ) {
-        capturedPhone = toolInput.patientPhone.trim();
-      }
 
-      const result = await executeTool(input.clinicId, toolCall.function.name, toolInput);
-      history.push({ role: "tool", tool_call_id: toolCall.id, content: result });
+        const result = await executeTool(input.clinicId, toolCall.function.name, toolInput);
+        history.push({ role: "tool", tool_call_id: toolCall.id, content: result });
 
-      if (toolCall.function.name === "book_appointment") {
-        const parsed = JSON.parse(result) as { ok: boolean };
-        if (parsed.ok) outcomeStatus = "BOOKED";
-      }
-      if (toolCall.function.name === "escalate_to_staff") {
-        outcomeStatus = "WAITING_CLINIC";
-        escalationReason = typeof toolInput.reason === "string" ? toolInput.reason : undefined;
+        if (toolCall.function.name === "book_appointment") {
+          const parsed = JSON.parse(result) as { ok: boolean };
+          if (parsed.ok) outcomeStatus = "BOOKED";
+        }
+        if (toolCall.function.name === "escalate_to_staff") {
+          outcomeStatus = "WAITING_CLINIC";
+          escalationReason = typeof toolInput.reason === "string" ? toolInput.reason : undefined;
+        }
       }
     }
   }
