@@ -46,13 +46,12 @@ export default async function BookPage({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-10">
-      <div>
-        <Link href="/dashboard" className="text-sm text-teal-700 hover:underline">
+      <div className="animate-in">
+        <Link href="/dashboard" className="btn-ghost -mr-2 mb-2 inline-flex">
           ← بازگشت به پنل
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-slate-900">
-          ثبت نوبت برای {doctor.name}
-        </h1>
+        <p className="eyebrow mb-1">تقویم نوبت‌دهی</p>
+        <h1 className="text-2xl font-bold text-slate-900">{doctor.name}</h1>
         {doctor.specialties.length > 0 && (
           <p className="mt-1 text-sm text-slate-500">
             {doctor.specialties.map((s) => s.name).join(" · ")}
@@ -68,7 +67,7 @@ export default async function BookPage({
       />
 
       {selectedDate && (
-        <div className="card animate-in p-4 sm:p-6">
+        <div className="surface animate-in p-4 sm:p-6">
           <h2 className="mb-3 text-base font-semibold text-slate-900">
             {new Intl.DateTimeFormat("fa-IR", { dateStyle: "full" }).format(selectedDate)}
           </h2>

@@ -33,11 +33,11 @@ export default function MonthCalendar({
   const nextMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
 
   return (
-    <div className="card animate-in overflow-hidden p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="surface animate-in overflow-hidden p-4 sm:p-6">
+      <div className="mb-5 flex items-center justify-between">
         <Link
           href={`/book/${doctorId}?month=${toMonthParam(prevMonth)}`}
-          className="btn btn-secondary btn-sm"
+          className="btn-ghost"
         >
           ماه قبل ←
         </Link>
@@ -48,7 +48,7 @@ export default function MonthCalendar({
         </h2>
         <Link
           href={`/book/${doctorId}?month=${toMonthParam(nextMonth)}`}
-          className="btn btn-secondary btn-sm"
+          className="btn-ghost"
         >
           → ماه بعد
         </Link>
@@ -58,7 +58,7 @@ export default function MonthCalendar({
         {WEEK_DAYS.map((d) => (
           <div
             key={d.value}
-            className="pb-1 text-center text-xs font-medium text-slate-400"
+            className="eyebrow pb-2 text-center"
           >
             {d.label}
           </div>
@@ -71,14 +71,14 @@ export default function MonthCalendar({
           const isFull = isBookable && day.freeCount === 0;
 
           const cellClasses = [
-            "flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-all duration-150",
+            "flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors duration-150",
             !day.inMonth && "text-slate-200",
             day.inMonth && !day.isWorkingDay && "text-slate-300",
             day.inMonth && day.isWorkingDay && day.isPast && "text-slate-300",
-            isSelected && "scale-105 bg-[#1e3a5f] text-white shadow-[0_3px_0_#14283f]",
+            isSelected && "bg-[#0b1220] text-white",
             isBookable && !isSelected && !isFull &&
-              "border border-teal-200 bg-teal-50 text-teal-800 hover:-translate-y-0.5 hover:border-teal-400",
-            isFull && !isSelected && "border border-slate-200 text-slate-400 line-through",
+              "border hairline bg-white text-teal-800 hover:border-teal-300 hover:bg-teal-50/60",
+            isFull && !isSelected && "border hairline text-slate-400 line-through",
           ]
             .filter(Boolean)
             .join(" ");
@@ -88,7 +88,7 @@ export default function MonthCalendar({
               <span className="relative font-semibold">
                 {new Intl.DateTimeFormat("fa-IR", { day: "numeric" }).format(day.date)}
                 {day.isToday && !isSelected && (
-                  <span className="absolute -top-1.5 -left-2.5 h-1.5 w-1.5 rounded-full bg-[#ffb703]" />
+                  <span className="absolute -top-1.5 -left-2.5 h-1.5 w-1.5 rounded-full bg-[var(--amber-quiet)]" />
                 )}
               </span>
               {day.inMonth && day.isWorkingDay && !day.isPast && (

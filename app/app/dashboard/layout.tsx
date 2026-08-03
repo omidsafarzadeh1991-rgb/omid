@@ -5,6 +5,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { canManageClinic } from "@/lib/roles";
 import { countNeedsFollowUp, sweepStaleConversations } from "@/lib/conversations";
 import SidebarNav from "./SidebarNav";
+import CommandPalette from "./CommandPalette";
 
 const ROLE_LABELS: Record<string, string> = {
   OWNER: "مالک سامانه",
@@ -29,9 +30,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen flex-1 flex-col sm:flex-row" dir="rtl">
       <aside className="sidebar-dark relative flex shrink-0 flex-col p-4 sm:w-64">
-        <div className="sidebar-glow" />
-
-        <div className="relative z-10 mb-6 flex items-center gap-3 rounded-2xl bg-white/5 p-3">
+        <div className="relative z-10 mb-4 flex items-center gap-3 rounded-2xl bg-white/5 p-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 text-lg font-bold text-white shadow-lg shadow-teal-900/40">
             {initial}
           </div>
@@ -41,6 +40,10 @@ export default async function DashboardLayout({
               {ROLE_LABELS[session.role] ?? session.role}
             </p>
           </div>
+        </div>
+
+        <div className="relative z-10 mb-4">
+          <CommandPalette />
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col">

@@ -55,40 +55,44 @@ export default function UpcomingList({ appointments }: { appointments: UpcomingA
   const groups = groupByDay(appointments);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {groups.map((group) => (
         <div key={group.key}>
-          <p className="mb-2 text-xs font-semibold text-slate-400">{group.label}</p>
-          <ul className="space-y-2">
+          <p className="eyebrow mb-3">{group.label}</p>
+          <ul className="timeline space-y-3">
             {group.items.map((appt) => (
-              <li
-                key={appt.id}
-                className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-shadow hover:shadow-[0_4px_16px_-8px_rgba(15,23,42,0.25)]"
-              >
-                <div>
-                  <div className="mb-1 flex items-center gap-2">
-                    <p className="font-medium text-slate-800">
-                      {appt.patientName}{" "}
-                      <span className="text-xs text-slate-400">({appt.patientPhone})</span>
+              <li key={appt.id} className="relative">
+                <span className="timeline-dot" />
+                <div className="surface flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="stat-value text-base">
+                        {new Intl.DateTimeFormat("fa-IR", { timeStyle: "short" }).format(
+                          appt.startTime
+                        )}
+                      </span>
+                      <p className="truncate font-medium text-slate-800">
+                        {appt.patientName}{" "}
+                        <span className="text-xs text-slate-400">({appt.patientPhone})</span>
+                      </p>
+                      <SourceBadge source={appt.source} />
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      {appt.doctor.name}
+                      {appt.serviceName && <> · {appt.serviceName}</>}
                     </p>
-                    <SourceBadge source={appt.source} />
                   </div>
-                  <p className="text-sm text-slate-500">
-                    {appt.doctor.name} —{" "}
-                    {new Intl.DateTimeFormat("fa-IR", { timeStyle: "short" }).format(appt.startTime)}
-                    {appt.serviceName && <> · {appt.serviceName}</>}
-                  </p>
+                  <form
+                    action={async () => {
+                      "use server";
+                      await cancelManualAppointmentAction(appt.id);
+                    }}
+                  >
+                    <button type="submit" className="btn-ghost">
+                      لغو
+                    </button>
+                  </form>
                 </div>
-                <form
-                  action={async () => {
-                    "use server";
-                    await cancelManualAppointmentAction(appt.id);
-                  }}
-                >
-                  <button type="submit" className="btn btn-danger btn-sm">
-                    لغو
-                  </button>
-                </form>
               </li>
             ))}
           </ul>

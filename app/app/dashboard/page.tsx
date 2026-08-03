@@ -73,8 +73,19 @@ export default async function DashboardPage() {
 
   const maxSourceCount = Math.max(1, ...bookedBySource.map((s) => s._count._all));
 
+  const todayLabel = new Intl.DateTimeFormat("fa-IR-u-ca-gregory", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(now);
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-9 px-4 py-10 sm:py-12">
+      <div className="animate-in">
+        <p className="eyebrow mb-1">{todayLabel}</p>
+        <h1 className="text-2xl font-bold text-slate-900">داشبورد</h1>
+      </div>
+
       {doctors.length === 0 ? (
         <section className="card animate-in p-6 text-sm text-slate-500">
           {isAdmin ? (
@@ -94,22 +105,22 @@ export default async function DashboardPage() {
       )}
 
       {isAdmin && (
-        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {stats.map((stat, i) => (
             <div
               key={stat.label}
-              className="card card-hover animate-in p-5 text-center"
+              className="surface animate-in p-5"
               style={{ animationDelay: `${0.05 * i}s` }}
             >
-              <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-              <p className="mt-1.5 text-xs text-slate-500">{stat.label}</p>
+              <p className="stat-value">{stat.value}</p>
+              <p className="eyebrow mt-1.5">{stat.label}</p>
             </div>
           ))}
         </section>
       )}
 
       {isAdmin && bookedBySource.length > 0 && (
-        <section className="card animate-in p-6">
+        <section className="surface animate-in p-6">
           <h2 className="mb-4 text-lg font-semibold text-slate-900">
             نوبت‌ها از کدام کانال بیشتر ثبت می‌شود
           </h2>
@@ -138,7 +149,7 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="card animate-in p-6">
+      <section className="surface animate-in p-6">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">
           نوبت‌های پیش رو
         </h2>

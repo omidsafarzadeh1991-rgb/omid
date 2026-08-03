@@ -240,3 +240,159 @@ body {
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   Premium surface (Dashboard + Calendar redesign): a quieter, spacious
+   layer of its own classes, kept separate from the tactile .btn/.card
+   system above so the rest of the app (settings, staff, doctors, login)
+   is untouched until this direction is confirmed on these two screens.
+   ========================================================================== */
+
+:root {
+  --ink: #0b1220;
+  --muted-ink: #5b6472;
+  --canvas: #f5f6f8;
+  --hairline: #e7e9ee;
+  --teal-quiet: #0f9c8c;
+  --amber-quiet: #b7791f;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted-ink);
+}
+
+.hairline {
+  border-color: var(--hairline);
+}
+
+/* A calmer card than .card: flat, hairline border, no drop shadow until
+   hovered - the "quiet by default, responsive to attention" principle. */
+.surface {
+  background: #ffffff;
+  border: 1px solid var(--hairline);
+  border-radius: 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.surface:hover {
+  border-color: #d7dbe3;
+  box-shadow: 0 12px 28px -20px rgba(11, 18, 32, 0.35);
+}
+
+.stat-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+
+/* ---- Timeline (today's appointments) ---- */
+
+.timeline {
+  position: relative;
+  padding-inline-end: 1.25rem;
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  inset-inline-end: 0.3125rem;
+  width: 1px;
+  background: var(--hairline);
+}
+.timeline-dot {
+  position: absolute;
+  inset-inline-end: -0.125rem;
+  top: 1.15rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: var(--teal-quiet);
+  box-shadow: 0 0 0 3px #ffffff;
+}
+.timeline-dot.is-muted {
+  background: #c7ccd6;
+}
+
+/* ---- Ghost button: quiet, for secondary actions on the new screens ---- */
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.625rem;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  color: var(--muted-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.btn-ghost:hover {
+  background: var(--canvas);
+  color: var(--ink);
+  border-color: var(--hairline);
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--hairline);
+  background: #fbfbfc;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted-ink);
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+/* ---- Command palette ---- */
+
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(11, 18, 32, 0.4);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 1rem 1rem;
+}
+
+.cmdk-panel {
+  width: 100%;
+  max-width: 34rem;
+  background: #ffffff;
+  border-radius: 1rem;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 30px 70px -20px rgba(11, 18, 32, 0.45);
+  overflow: hidden;
+  animation: cmdk-in 0.14s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cmdk-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmdk-panel {
+    animation: none !important;
+  }
+}
