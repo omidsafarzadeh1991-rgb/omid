@@ -2,6 +2,9 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
+import { logSecurityEvent } from "@/lib/security-log";
+
+const DAY_MS = 24 * 60 * 60_000;
 
 function getBackupDir(): string {
   return process.env.BACKUP_DIR || path.join(process.cwd(), "backups");
@@ -53,6 +56,28 @@ export function pruneOldBackups(keep = 7): void {
   const backups = listBackups();
   for (const backup of backups.slice(keep)) {
     fs.unlinkSync(path.join(getBackupDir(), backup.fileName));
+  }
+}
+
+/**
+ * Called periodically (see instrumentation.ts) - creates a backup only if
+ * the newest one on disk is more than a day old, so this is safe to call
+ * often (e.g. every hour) without ever creating extra copies. Reuses the
+ * backup folder itself as the "last backup time" record, so no separate
+ * schedule/state needs to be persisted anywhere.
+ */
+export async function runDailyBackupIfDue(): Promise<void> {
+  const [mostRecent] = listBackups();
+  if (mostRecent && Date.now() - mostRecent.createdAt.getTime() < DAY_MS) {
+    return;
+  }
+
+  const backup = await createBackup();
+  pruneOldBackups(7);
+
+  const clinic = await prisma.clinic.findFirst({ select: { id: true } });
+  if (clinic) {
+    await logSecurityEvent(clinic.id, "BACKUP_CREATED", `${backup.fileName} (خودکار روزانه)`);
   }
 }
 

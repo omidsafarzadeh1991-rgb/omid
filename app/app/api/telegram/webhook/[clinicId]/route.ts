@@ -2,6 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { verifyTelegramWebhook } from "@/lib/settings";
 import { runAssistantTurn } from "@/lib/assistant";
 import { sendTelegramMessage, type TelegramUpdate } from "@/lib/telegram";
+import { isRateLimited } from "@/lib/rate-limit";
+
+// Generous enough for real multi-patient traffic bursts on one clinic, but
+// still a hard stop against a flood driving up AI-API cost or DB load.
+const WEBHOOK_LIMIT = 20;
+const WEBHOOK_WINDOW_MS = 10_000;
 
 export async function POST(
   request: Request,
@@ -13,6 +19,10 @@ export async function POST(
   const verified = await verifyTelegramWebhook(clinicId, secretHeader);
   if (!verified) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  if (isRateLimited(`telegram-webhook:${clinicId}`, WEBHOOK_LIMIT, WEBHOOK_WINDOW_MS)) {
+    return new Response("Too Many Requests", { status: 429 });
   }
 
   const update: TelegramUpdate = await request.json();

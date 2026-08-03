@@ -9,6 +9,13 @@ import { maskSecret } from "@/lib/crypto";
 import { saveSmsCredentials } from "@/lib/sms";
 import { logSecurityEvent } from "@/lib/security-log";
 import { prisma } from "@/lib/prisma";
+import { isRateLimited } from "@/lib/rate-limit";
+
+// These guard OWNER-only secret-writing actions. Already behind a logged-in
+// OWNER session, so this is a safety net against a compromised/scripted
+// session hammering them, not the primary defense.
+const SECRET_SAVE_LIMIT = 10;
+const SECRET_SAVE_WINDOW_MS = 10 * 60_000;
 
 const SaveTokenSchema = z.object({
   platform: z.enum(["TELEGRAM", "BALE"]),
@@ -26,6 +33,9 @@ export async function saveBotTokenAction(
   const session = await requireSession();
   if (session.role !== "OWNER") {
     return { message: "فقط مالک سامانه می‌تواند توکن بات را ببیند و تغییر دهد." };
+  }
+  if (isRateLimited(`save-secret:${session.staffId}`, SECRET_SAVE_LIMIT, SECRET_SAVE_WINDOW_MS)) {
+    return { message: "تعداد درخواست‌ها بیش از حد مجاز است؛ چند دقیقه دیگر دوباره امتحان کنید." };
   }
 
   const validated = SaveTokenSchema.safeParse({
@@ -91,6 +101,9 @@ export async function saveSmsCredentialsAction(
   const session = await requireSession();
   if (session.role !== "OWNER") {
     return { message: "فقط مالک سامانه می‌تواند سرویس پیامک را تنظیم کند." };
+  }
+  if (isRateLimited(`save-secret:${session.staffId}`, SECRET_SAVE_LIMIT, SECRET_SAVE_WINDOW_MS)) {
+    return { message: "تعداد درخواست‌ها بیش از حد مجاز است؛ چند دقیقه دیگر دوباره امتحان کنید." };
   }
 
   const validated = SaveSmsCredentialsSchema.safeParse({

@@ -6,6 +6,13 @@ import { verifyLogin } from "@/lib/auth";
 import { createSession, deleteSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { logSecurityEvent } from "@/lib/security-log";
+import { isRateLimited } from "@/lib/rate-limit";
+
+// Per-email limit stops repeated guessing against one account; the coarser
+// global limit stops someone sweeping through many different email guesses.
+const LOGIN_LIMIT_PER_EMAIL = 5;
+const LOGIN_LIMIT_GLOBAL = 30;
+const LOGIN_WINDOW_MS = 5 * 60_000;
 
 const LoginSchema = z.object({
   email: z.email("ایمیل معتبر وارد کنید."),
@@ -30,6 +37,16 @@ export async function loginAction(
 
   if (!validated.success) {
     return { errors: validated.error.flatten().fieldErrors };
+  }
+
+  const emailLimited = isRateLimited(
+    `login:${validated.data.email.toLowerCase()}`,
+    LOGIN_LIMIT_PER_EMAIL,
+    LOGIN_WINDOW_MS
+  );
+  const globalLimited = isRateLimited("login:global", LOGIN_LIMIT_GLOBAL, LOGIN_WINDOW_MS);
+  if (emailLimited || globalLimited) {
+    return { message: "تعداد تلاش‌های ورود بیش از حد مجاز است؛ چند دقیقه دیگر دوباره امتحان کنید." };
   }
 
   const result = await verifyLogin(

@@ -5,6 +5,10 @@ import { z } from "zod";
 import { verifySetupPassword, isSetupComplete } from "@/lib/setup";
 import { registerClinic } from "@/lib/auth";
 import { createSession } from "@/lib/session";
+import { isRateLimited } from "@/lib/rate-limit";
+
+const SETUP_ATTEMPT_LIMIT = 5;
+const SETUP_ATTEMPT_WINDOW_MS = 15 * 60_000;
 
 const SetupSchema = z.object({
   setupPassword: z.string().min(1, "رمز راه‌اندازی را وارد کنید."),
@@ -38,6 +42,10 @@ export async function setupAction(
   });
   if (!validated.success) {
     return { errors: validated.error.flatten().fieldErrors };
+  }
+
+  if (isRateLimited("setup", SETUP_ATTEMPT_LIMIT, SETUP_ATTEMPT_WINDOW_MS)) {
+    return { message: "تعداد تلاش‌های راه‌اندازی بیش از حد مجاز است؛ چند دقیقه دیگر دوباره امتحان کنید." };
   }
 
   if (!verifySetupPassword(validated.data.setupPassword)) {
