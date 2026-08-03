@@ -7,10 +7,12 @@
   /* ---- Brand palette ---- */
   --color-primary: #1e3a5f;
   --color-primary-light: #2c527f;
-  --color-primary-dark: #14283f;
+  --color-primary-dark: #0d1b2e;
   --color-secondary: #3dd9c5;
   --color-accent: #ffb703;
   --color-surface: #ffffff;
+  --color-emerald: #0a6e52;
+  --color-emerald-light: #12946f;
 }
 
 @theme inline {
@@ -20,7 +22,7 @@
   --color-secondary: var(--color-secondary);
   --color-accent: var(--color-accent);
   --color-surface: var(--color-surface);
-  --font-sans: Tahoma, "Segoe UI", Arial, sans-serif;
+  --font-sans: "Vazirmatn Variable", Tahoma, "Segoe UI", Arial, sans-serif;
 }
 
 body {
@@ -251,42 +253,80 @@ body {
 :root {
   --ink: #0b1220;
   --muted-ink: #5b6472;
-  --canvas: #f5f6f8;
+  --canvas: #f3f4f7;
   --hairline: #e7e9ee;
   --teal-quiet: #0f9c8c;
   --amber-quiet: #b7791f;
 }
 
 .eyebrow {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   color: var(--muted-ink);
+}
+
+.title-lg {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--ink);
 }
 
 .hairline {
   border-color: var(--hairline);
 }
 
-/* A calmer card than .card: flat, hairline border, no drop shadow until
-   hovered - the "quiet by default, responsive to attention" principle. */
+/* A card with real, soft elevation at rest - not just a hairline - so the
+   surface reads as sitting above the canvas, not painted flat onto it. */
 .surface {
   background: #ffffff;
   border: 1px solid var(--hairline);
-  border-radius: 1rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 1.125rem;
+  box-shadow:
+    0 1px 1px rgba(11, 18, 32, 0.03),
+    0 10px 24px -14px rgba(11, 18, 32, 0.16),
+    0 24px 48px -28px rgba(11, 18, 32, 0.14);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 }
-.surface:hover {
+.surface-hover:hover {
   border-color: #d7dbe3;
-  box-shadow: 0 12px 28px -20px rgba(11, 18, 32, 0.35);
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 3px rgba(11, 18, 32, 0.04),
+    0 16px 32px -14px rgba(11, 18, 32, 0.22),
+    0 32px 56px -24px rgba(11, 18, 32, 0.2);
+}
+
+/* A more prominent surface for the single "hero" moment per screen -
+   deeper shadow, subtle brand-tinted gradient wash. */
+.surface-hero {
+  position: relative;
+  background: linear-gradient(160deg, #ffffff 0%, #f7fbfa 100%);
+  border: 1px solid var(--hairline);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 1px 1px rgba(11, 18, 32, 0.04),
+    0 20px 40px -18px rgba(10, 110, 82, 0.18),
+    0 36px 64px -32px rgba(11, 18, 32, 0.2);
 }
 
 .stat-value {
   font-variant-numeric: tabular-nums;
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 2.25rem;
+  font-weight: 800;
   color: var(--ink);
   line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+/* Smaller variant - combine with .stat-value. Defined after it so it wins
+   the cascade over the base font-size regardless of any Tailwind utility
+   class order (equal-specificity rules resolve by source position). */
+.stat-value.stat-compact {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: normal;
 }
 
 /* ---- Timeline (today's appointments) ---- */
@@ -316,6 +356,29 @@ body {
 }
 .timeline-dot.is-muted {
   background: #c7ccd6;
+}
+
+/* ---- Empty state ---- */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--muted-ink);
+}
+.empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  background: var(--canvas);
+  color: #9aa1ad;
 }
 
 /* ---- Ghost button: quiet, for secondary actions on the new screens ---- */

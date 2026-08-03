@@ -71,14 +71,16 @@ export default function MonthCalendar({
           const isFull = isBookable && day.freeCount === 0;
 
           const cellClasses = [
-            "flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors duration-150",
+            "flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-all duration-150",
             !day.inMonth && "text-slate-200",
             day.inMonth && !day.isWorkingDay && "text-slate-300",
             day.inMonth && day.isWorkingDay && day.isPast && "text-slate-300",
-            isSelected && "bg-[#0b1220] text-white",
+            isSelected &&
+              "bg-[#0b1220] text-white shadow-[0_10px_24px_-8px_rgba(11,18,32,0.55)]",
             isBookable && !isSelected && !isFull &&
-              "border hairline bg-white text-teal-800 hover:border-teal-300 hover:bg-teal-50/60",
+              "border hairline bg-white text-teal-800 hover:-translate-y-0.5 hover:border-teal-300 hover:bg-teal-50/60 hover:shadow-[0_8px_18px_-10px_rgba(11,18,32,0.25)]",
             isFull && !isSelected && "border hairline text-slate-400 line-through",
+            day.isToday && !isSelected && "ring-2 ring-[var(--amber-quiet)] ring-offset-1",
           ]
             .filter(Boolean)
             .join(" ");
@@ -87,9 +89,6 @@ export default function MonthCalendar({
             <>
               <span className="relative font-semibold">
                 {new Intl.DateTimeFormat("fa-IR", { day: "numeric" }).format(day.date)}
-                {day.isToday && !isSelected && (
-                  <span className="absolute -top-1.5 -left-2.5 h-1.5 w-1.5 rounded-full bg-[var(--amber-quiet)]" />
-                )}
               </span>
               {day.inMonth && day.isWorkingDay && !day.isPast && (
                 <span className="mt-0.5 text-[10px] leading-none opacity-80">

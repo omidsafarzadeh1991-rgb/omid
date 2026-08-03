@@ -48,10 +48,6 @@ function groupByDay(appointments: UpcomingAppointment[]) {
 }
 
 export default function UpcomingList({ appointments }: { appointments: UpcomingAppointment[] }) {
-  if (appointments.length === 0) {
-    return <p className="text-sm text-slate-500">نوبتی ثبت نشده است.</p>;
-  }
-
   const groups = groupByDay(appointments);
 
   return (
@@ -63,10 +59,10 @@ export default function UpcomingList({ appointments }: { appointments: UpcomingA
             {group.items.map((appt) => (
               <li key={appt.id} className="relative">
                 <span className="timeline-dot" />
-                <div className="surface flex items-center justify-between gap-3 px-4 py-3">
+                <div className="surface surface-hover flex items-center justify-between gap-3 px-5 py-4">
                   <div className="min-w-0">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="stat-value text-base">
+                      <span className="stat-value stat-compact">
                         {new Intl.DateTimeFormat("fa-IR", { timeStyle: "short" }).format(
                           appt.startTime
                         )}

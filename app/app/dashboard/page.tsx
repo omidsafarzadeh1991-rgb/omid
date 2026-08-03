@@ -3,8 +3,17 @@ import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { canManageClinic } from "@/lib/roles";
 import NewAppointmentCard from "./NewAppointmentCard";
-import SourceBadge from "./SourceBadge";
+import ChannelDonut from "./ChannelDonut";
 import UpcomingList from "./UpcomingList";
+import EmptyState from "./EmptyState";
+
+function greeting(hour: number): string {
+  if (hour < 5) return "شب بخیر";
+  if (hour < 12) return "صبح بخیر";
+  if (hour < 17) return "ظهر بخیر";
+  if (hour < 20) return "عصر بخیر";
+  return "شب بخیر";
+}
 
 export default async function DashboardPage() {
   const session = await requireSession();
@@ -17,6 +26,7 @@ export default async function DashboardPage() {
   const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60_000);
 
   const [
+    staff,
     doctors,
     upcomingAppointments,
     todayCount,
@@ -24,6 +34,10 @@ export default async function DashboardPage() {
     totalBookedEver,
     bookedBySource,
   ] = await Promise.all([
+    prisma.staffUser.findUniqueOrThrow({
+      where: { id: session.staffId },
+      select: { firstName: true },
+    }),
     prisma.doctor.findMany({
       where: { clinicId: session.clinicId },
       orderBy: { createdAt: "asc" },
@@ -71,8 +85,6 @@ export default async function DashboardPage() {
     { label: "مجموع نوبت‌های ثبت‌شده", value: totalBookedEver },
   ];
 
-  const maxSourceCount = Math.max(1, ...bookedBySource.map((s) => s._count._all));
-
   const todayLabel = new Intl.DateTimeFormat("fa-IR-u-ca-gregory", {
     weekday: "long",
     day: "numeric",
@@ -80,14 +92,16 @@ export default async function DashboardPage() {
   }).format(now);
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-9 px-4 py-10 sm:py-12">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-11 px-4 py-12 sm:py-14">
       <div className="animate-in">
-        <p className="eyebrow mb-1">{todayLabel}</p>
-        <h1 className="text-2xl font-bold text-slate-900">داشبورد</h1>
+        <p className="eyebrow mb-2">{todayLabel}</p>
+        <h1 className="title-lg">
+          {greeting(now.getHours())}، {staff.firstName}
+        </h1>
       </div>
 
       {doctors.length === 0 ? (
-        <section className="card animate-in p-6 text-sm text-slate-500">
+        <section className="surface animate-in p-6 text-sm text-slate-500">
           {isAdmin ? (
             <>
               هنوز پزشکی ثبت نشده.{" "}
@@ -105,55 +119,41 @@ export default async function DashboardPage() {
       )}
 
       {isAdmin && (
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {stats.map((stat, i) => (
             <div
               key={stat.label}
-              className="surface animate-in p-5"
+              className="surface surface-hover animate-in p-6"
               style={{ animationDelay: `${0.05 * i}s` }}
             >
               <p className="stat-value">{stat.value}</p>
-              <p className="eyebrow mt-1.5">{stat.label}</p>
+              <p className="eyebrow mt-2">{stat.label}</p>
             </div>
           ))}
         </section>
       )}
 
       {isAdmin && bookedBySource.length > 0 && (
-        <section className="surface animate-in p-6">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">
+        <section className="surface animate-in p-7">
+          <h2 className="mb-5 text-lg font-bold text-slate-900">
             نوبت‌ها از کدام کانال بیشتر ثبت می‌شود
           </h2>
-          <div className="space-y-3">
-            {bookedBySource
-              .sort((a, b) => b._count._all - a._count._all)
-              .map((row) => (
-                <div key={row.source} className="flex items-center gap-3">
-                  <div className="w-28 shrink-0">
-                    <SourceBadge source={row.source} />
-                  </div>
-                  <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-l from-teal-400 to-teal-600"
-                      style={{
-                        width: `${(row._count._all / maxSourceCount) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="w-8 shrink-0 text-left text-sm font-semibold text-slate-700">
-                    {row._count._all}
-                  </span>
-                </div>
-              ))}
-          </div>
+          <ChannelDonut
+            rows={bookedBySource.map((r) => ({ source: r.source, count: r._count._all }))}
+          />
         </section>
       )}
 
-      <section className="surface animate-in p-6">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">
-          نوبت‌های پیش رو
-        </h2>
-        <UpcomingList appointments={upcomingAppointments} />
+      <section className="surface animate-in p-7">
+        <h2 className="mb-5 text-lg font-bold text-slate-900">نوبت‌های پیش رو</h2>
+        {upcomingAppointments.length === 0 ? (
+          <EmptyState
+            title="هنوز نوبتی در پیش رو نیست"
+            subtitle="نوبت‌هایی که از پنل یا بات‌ها ثبت شوند، همین‌جا و به‌ترتیب زمان نمایش داده می‌شوند."
+          />
+        ) : (
+          <UpcomingList appointments={upcomingAppointments} />
+        )}
       </section>
     </main>
   );

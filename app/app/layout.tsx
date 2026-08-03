@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/vazirmatn/wght.css";
 import "./globals.css";
 
 const title = "سامانهٔ نوبت‌دهی کلینیک";

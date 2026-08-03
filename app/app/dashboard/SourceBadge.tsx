@@ -61,6 +61,10 @@ export function sourceLabel(source: string): string {
   return SOURCE_META[source]?.label ?? source;
 }
 
+export function sourceColor(source: string): string {
+  return SOURCE_META[source]?.fg ?? "#475569";
+}
+
 export default function SourceBadge({ source }: { source: string }) {
   const meta = SOURCE_META[source] ?? {
     label: source,
