@@ -125,28 +125,37 @@ function parseDateTime(date: string, time: string): Date | null {
   return Number.isNaN(result.getTime()) ? null : result;
 }
 
+/**
+ * Reads the clinic's current doctors/specialties/services/schedules fresh
+ * from the database. Used both by the list_doctors tool and to refresh the
+ * system prompt every turn, so a doctor added mid-conversation (or any
+ * catalog change) is never masked by a stale tool result sitting earlier in
+ * this chat's persisted history.
+ */
+async function fetchDoctorsSnapshot(clinicId: string) {
+  const doctors = await prisma.doctor.findMany({
+    where: { clinicId },
+    include: { schedules: true, services: true, specialties: true },
+  });
+  return doctors.map((doctor) => ({
+    id: doctor.id,
+    name: doctor.name,
+    specialties: doctor.specialties.map((s) => s.name),
+    workSchedule: formatSchedules(doctor.schedules) || "بدون برنامهٔ کاری تعریف‌شده",
+    services: doctor.services.map((service) => ({
+      name: service.name,
+      price: service.price != null ? formatToman(service.price) : "قیمت تعیین نشده",
+    })),
+  }));
+}
+
 async function executeTool(
   clinicId: string,
   name: string,
   input: Record<string, unknown>
 ): Promise<string> {
   if (name === "list_doctors") {
-    const doctors = await prisma.doctor.findMany({
-      where: { clinicId },
-      include: { schedules: true, services: true, specialties: true },
-    });
-    return JSON.stringify(
-      doctors.map((doctor) => ({
-        id: doctor.id,
-        name: doctor.name,
-        specialties: doctor.specialties.map((s) => s.name),
-        workSchedule: formatSchedules(doctor.schedules) || "بدون برنامهٔ کاری تعریف‌شده",
-        services: doctor.services.map((service) => ({
-          name: service.name,
-          price: service.price != null ? formatToman(service.price) : "قیمت تعیین نشده",
-        })),
-      }))
-    );
+    return JSON.stringify(await fetchDoctorsSnapshot(clinicId));
   }
 
   if (name === "check_availability") {
@@ -260,7 +269,11 @@ async function executeTool(
   return JSON.stringify({ error: "ابزار ناشناخته." });
 }
 
-function buildSystemPrompt(clinicName: string, adminInstructions: string): string {
+function buildSystemPrompt(
+  clinicName: string,
+  adminInstructions: string,
+  doctorsSnapshotJson: string
+): string {
   const now = new Date();
   const todayLabel = now.toLocaleDateString("fa-IR-u-ca-gregory", {
     weekday: "long",
@@ -275,7 +288,9 @@ function buildSystemPrompt(clinicName: string, adminInstructions: string): strin
     `امروز ${todayLabel} (${isoToday}) است؛ تاریخ‌های نسبی مثل «فردا» یا «چهارشنبه» را بر این اساس به فرمت YYYY-MM-DD تبدیل کن.`,
     "اول نیت پیام بیمار را تشخیص بده - رزرو نوبت جدید، سوال دربارهٔ پزشکان/تخصص‌ها/خدمات/قیمت‌ها/ساعات کاری، لغو نوبت، یا پیگیری نوبت خودش - و مستقیم مسیر همان نیت را دنبال کن؛ در ابتدای مکالمه یک فرم یا سوالات ثابت (مثل نام و شماره) نپرس.",
     "فقط دربارهٔ نوبت‌دهی، پزشکان، تخصص‌ها، خدمات، قیمت‌ها و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
-    "برای دیدن پزشکان، تخصص‌ها، خدمات و قیمت‌ها از list_doctors و برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت یا قیمت یک خدمت حدس نزن.",
+    `فهرست فعلی و به‌روزِ پزشکان این کلینیک (همین الان از دیتابیس خوانده شده): ${doctorsSnapshotJson}`,
+    "این فهرست همیشه معتبرترین منبع است؛ حتی اگر قبلاً در همین گفتگو دربارهٔ پزشکان صحبت کرده‌ای (مثلاً کمتر بودن تعداد پزشکان)، همیشه همین فهرست بالا را ملاک بگذار، چون ممکن است از آن موقع پزشک جدیدی اضافه شده باشد. اگر باز هم لازم بود می‌توانی list_doctors را دوباره صدا بزنی.",
+    "برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت یا قیمت یک خدمت حدس نزن.",
     "هرگز در همان پیام اول و بدون نیاز واقعی نام یا شمارهٔ تماس بیمار را نخواه. شمارهٔ تماس را فقط درست قبل از ثبت نهایی نوبت (اگر نداری) با دقیقاً همین جمله بپرس: «برای اینکه در صورت نیاز بتونیم تماس بگیریم، لطفاً شماره‌تون رو وارد کنید.»",
     "به محض این‌که پزشک، تاریخ، ساعت، نام و شمارهٔ تماس بیمار مشخص شد، بلافاصله با book_appointment نوبت را ثبت کن؛ منتظر تاییدِ اضافی نمان.",
     "برای «نوبتم چه ساعتیه» یا «نوبتم رو لغو کن»، اول با find_my_appointments (با شمارهٔ تماس بیمار) نوبت او را پیدا کن - اگر شماره را نداری مودبانه بپرس: «برای پیدا کردن نوبت شما، شماره تماسی که با آن نوبت گرفته‌اید را بفرمایید.» - سپس در صورت لغو، از cancel_appointment روی همان appointmentId استفاده کن؛ هرگز حدس نزن.",
@@ -339,7 +354,12 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
   history.push({ role: "user", content: input.userText });
 
   const client = getClient();
-  const system = buildSystemPrompt(input.clinicName, input.assistantInstructions ?? "");
+  const doctorsSnapshot = await fetchDoctorsSnapshot(input.clinicId);
+  const system = buildSystemPrompt(
+    input.clinicName,
+    input.assistantInstructions ?? "",
+    JSON.stringify(doctorsSnapshot)
+  );
   let replyText = "";
 
   // Every successful turn ends the conversation resting in one of these

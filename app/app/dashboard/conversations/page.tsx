@@ -94,7 +94,7 @@ export default async function ConversationsPage({
         ))}
       </section>
 
-      <section className="card animate-in p-6">
+      <section className="card animate-in min-w-0 p-6">
         <form className="mb-5 flex flex-wrap items-end gap-3" dir="rtl">
           <div className="min-w-[200px] flex-1">
             <label className="mb-1 block text-xs font-medium text-slate-600">

@@ -48,7 +48,7 @@ export default async function DashboardLayout({
           </button>
         </form>
       </aside>
-      <div className="flex-1">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

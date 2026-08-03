@@ -20,7 +20,7 @@ export default function AddSpecialtyForm() {
         name="name"
         required
         placeholder="مثلاً ارتودنسی"
-        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
       <button type="submit" disabled={pending} className="btn btn-secondary btn-sm">
         {pending ? "در حال افزودن..." : "افزودن تخصص"}

@@ -364,6 +364,39 @@ describe("runAssistantTurn", () => {
     expect(notes[0].text).toContain("بیمار شکایت دارد");
   });
 
+  it("always includes a fresh doctor list in the system prompt, even mid-conversation after a new doctor is added", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("سلام! چطور می‌توانم کمک کنم؟"));
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "1010",
+      userText: "سلام",
+    });
+
+    const secondDoctor = await prisma.doctor.create({
+      data: { clinicId: clinic.id, name: "دکتر جدید", slotMinutes: 30 },
+    });
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("بله، هر دو پزشک را داریم."));
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "1010",
+      userText: "چه پزشکانی دارید؟",
+    });
+
+    const secondCall = mockCreate.mock.calls[1][0] as {
+      messages: { role: string; content: string }[];
+    };
+    const systemContent = secondCall.messages[0].content;
+    expect(systemContent).toContain(doctor.name);
+    expect(systemContent).toContain(secondDoctor.name);
+  });
+
   it("reopens a closed conversation to WAITING_PATIENT when the patient writes again", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
     void doctor;

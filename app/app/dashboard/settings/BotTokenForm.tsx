@@ -29,7 +29,7 @@ export default function BotTokenForm({
         required
         dir="ltr"
         placeholder={hasToken ? "برای تغییر، توکن جدید را وارد کنید" : "توکن ربات را اینجا بچسبانید"}
-        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
       <button type="submit" disabled={pending} className="btn btn-dark btn-sm">
         {pending ? "در حال ذخیره..." : hasToken ? "به‌روزرسانی توکن" : "ذخیرهٔ توکن"}
