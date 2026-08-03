@@ -14,23 +14,3 @@ export function toEnglishDigits(value: string): string {
 export function formatToman(amount: number): string {
   return `${amount.toLocaleString("fa-IR")} تومان`;
 }
-
-/** Parses one "نام خدمت - قیمت" per line; the price part is optional. */
-export function parseServiceLines(raw: string): { name: string; price: number | null }[] {
-  return raw
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => {
-      const separatorIndex = line.lastIndexOf("-");
-      if (separatorIndex === -1) {
-        return { name: line, price: null };
-      }
-      const name = line.slice(0, separatorIndex).trim();
-      const priceDigits = toEnglishDigits(line.slice(separatorIndex + 1)).replace(/[^\d]/g, "");
-      if (!name || !priceDigits) {
-        return { name: line, price: null };
-      }
-      return { name, price: Number(priceDigits) };
-    });
-}

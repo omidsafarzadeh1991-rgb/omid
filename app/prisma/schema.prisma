@@ -51,6 +51,8 @@ model Clinic {
   appointments Appointment[]
   botIntegrations BotIntegration[]
   botConversations BotConversation[]
+  services    Service[]
+  specialties Specialty[]
 }
 
 // Per-clinic messenger bot connection. The token is encrypted at rest
@@ -111,7 +113,22 @@ model Doctor {
 
   appointments Appointment[]
   services     Service[]
+  specialties  Specialty[]
   schedules    DoctorSchedule[]
+}
+
+// Clinic-wide catalog of specialties (e.g. "دندانپزشکی عمومی", "ارتودنسی").
+// Admin defines these once, then picks which apply to each doctor.
+model Specialty {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+
+  doctors Doctor[]
+
+  @@unique([clinicId, name])
 }
 
 // One row per day of week the doctor is present, so hours can differ by
@@ -128,16 +145,19 @@ model DoctorSchedule {
   @@unique([doctorId, dayOfWeek])
 }
 
+// Clinic-wide catalog of services (e.g. "ویزیت عمومی - 200000"). Admin
+// defines these once, then picks which doctors offer each one.
 model Service {
   id        String   @id @default(cuid())
   clinicId  String
-  doctorId  String
-  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
   name      String
   price     Int? // تومان؛ خالی یعنی قیمت مشخص نشده
   createdAt DateTime @default(now())
 
-  @@index([doctorId])
+  doctors Doctor[]
+
+  @@unique([clinicId, name])
 }
 
 model Appointment {

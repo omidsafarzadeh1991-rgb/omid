@@ -3,6 +3,10 @@ import { isSetupComplete } from "@/lib/setup";
 import LogoMark from "../components/LogoMark";
 import SetupForm from "./SetupForm";
 
+// Reads live DB state (has a clinic been created yet?) - must never be
+// frozen into a static build-time snapshot.
+export const dynamic = "force-dynamic";
+
 export default async function SetupPage() {
   if (await isSetupComplete()) {
     redirect("/login");

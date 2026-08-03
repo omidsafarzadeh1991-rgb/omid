@@ -10,6 +10,8 @@ const initialState: CreateAppointmentFormState = undefined;
 
 type SlotDTO = { startTime: string; isFree: boolean };
 
+type ServiceDTO = { name: string; price: string | null };
+
 export default function BookingForm({
   doctorId,
   slots,
@@ -17,7 +19,7 @@ export default function BookingForm({
 }: {
   doctorId: string;
   slots: SlotDTO[];
-  services: string[];
+  services: ServiceDTO[];
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [state, action, pending] = useActionState(
@@ -92,8 +94,9 @@ export default function BookingForm({
               >
                 <option value="">— انتخاب نشود —</option>
                 {services.map((service) => (
-                  <option key={service} value={service}>
-                    {service}
+                  <option key={service.name} value={service.name}>
+                    {service.name}
+                    {service.price ? ` · ${service.price}` : ""}
                   </option>
                 ))}
               </select>

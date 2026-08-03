@@ -20,7 +20,7 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "list_doctors",
       description:
-        "لیست پزشکان این کلینیک را برمی‌گرداند، همراه با روزها/ساعات کاری و خدماتشان.",
+        "لیست پزشکان این کلینیک را برمی‌گرداند، همراه با تخصص‌ها، روزها/ساعات کاری و خدماتشان.",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -87,12 +87,13 @@ async function executeTool(
   if (name === "list_doctors") {
     const doctors = await prisma.doctor.findMany({
       where: { clinicId },
-      include: { schedules: true, services: true },
+      include: { schedules: true, services: true, specialties: true },
     });
     return JSON.stringify(
       doctors.map((doctor) => ({
         id: doctor.id,
         name: doctor.name,
+        specialties: doctor.specialties.map((s) => s.name),
         workSchedule: formatSchedules(doctor.schedules) || "بدون برنامهٔ کاری تعریف‌شده",
         services: doctor.services.map((service) => ({
           name: service.name,
@@ -180,8 +181,8 @@ function buildSystemPrompt(clinicName: string, adminInstructions: string): strin
   const fixedRules = [
     `تو منشی هوش مصنوعی «${clinicName}» هستی و با بیماران در تلگرام گفتگو می‌کنی.`,
     `امروز ${todayLabel} (${isoToday}) است؛ تاریخ‌های نسبی مثل «فردا» یا «چهارشنبه» را بر این اساس به فرمت YYYY-MM-DD تبدیل کن.`,
-    "فقط دربارهٔ نوبت‌دهی، پزشکان، خدمات، قیمت‌ها و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
-    "برای دیدن پزشکان، خدمات و قیمت‌ها از list_doctors و برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت یا قیمت یک خدمت حدس نزن.",
+    "فقط دربارهٔ نوبت‌دهی، پزشکان، تخصص‌ها، خدمات، قیمت‌ها و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
+    "برای دیدن پزشکان، تخصص‌ها، خدمات و قیمت‌ها از list_doctors و برای دیدن ساعت خالی از check_availability استفاده کن؛ هرگز دربارهٔ خالی یا پر بودن یک ساعت یا قیمت یک خدمت حدس نزن.",
     "به محض این‌که پزشک، تاریخ، ساعت، نام و شمارهٔ تماس بیمار مشخص شد، بلافاصله با book_appointment نوبت را ثبت کن؛ منتظر تاییدِ اضافی نمان.",
     "پاسخ‌هایت کوتاه، مودبانه، و کاملاً فارسی باشد.",
   ].join("\n");

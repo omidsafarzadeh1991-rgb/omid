@@ -2,6 +2,10 @@ import Link from "next/link";
 import LogoMark from "./components/LogoMark";
 import { isSetupComplete } from "@/lib/setup";
 
+// Reads live DB state (has a clinic been created yet?) - must never be
+// frozen into a static build-time snapshot.
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const setupDone = await isSetupComplete();
 

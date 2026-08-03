@@ -6,11 +6,18 @@ import {
   type CreateDoctorFormState,
 } from "@/app/actions/clinic";
 import { WEEK_DAYS } from "@/lib/weekdays";
+import CatalogCheckboxGroup from "./CatalogCheckboxGroup";
 
 const initialState: CreateDoctorFormState = undefined;
 const DEFAULT_ENABLED_DAYS = [6, 0, 1, 2, 3]; // شنبه تا چهارشنبه
 
-export default function AddDoctorForm() {
+export default function AddDoctorForm({
+  specialties,
+  services,
+}: {
+  specialties: { id: string; name: string }[];
+  services: { id: string; name: string }[];
+}) {
   const [state, action, pending] = useActionState(
     createDoctorAction,
     initialState
@@ -117,15 +124,24 @@ export default function AddDoctorForm() {
       </div>
 
       <div className="sm:col-span-4">
-        <label className="mb-1 block text-xs font-medium text-slate-600">
-          خدماتی که ارائه می‌دهد (اختیاری — هر خدمت را در یک خط بنویسید؛ برای
-          نوشتن قیمت به تومان، بعد از یک خط تیره «-» بنویسید)
+        <label className="mb-2 block text-xs font-medium text-slate-600">
+          تخصص‌ها
         </label>
-        <textarea
-          name="services"
-          rows={3}
-          placeholder={"ویزیت عمومی - 200000\nجرمگیری - 350000\nمشاوره"}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        <CatalogCheckboxGroup
+          name="specialtyIds"
+          items={specialties.map((s) => ({ id: s.id, label: s.name }))}
+          emptyMessage="هنوز تخصصی تعریف نشده — اول از بخش «فهرست تخصص‌ها» بالای همین صفحه اضافه کنید."
+        />
+      </div>
+
+      <div className="sm:col-span-4">
+        <label className="mb-2 block text-xs font-medium text-slate-600">
+          خدمات
+        </label>
+        <CatalogCheckboxGroup
+          name="serviceIds"
+          items={services.map((s) => ({ id: s.id, label: s.name }))}
+          emptyMessage="هنوز خدمتی تعریف نشده — اول از بخش «فهرست خدمات» بالای همین صفحه اضافه کنید."
         />
       </div>
 

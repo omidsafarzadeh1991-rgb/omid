@@ -166,7 +166,12 @@ describe("runAssistantTurn", () => {
   it("lets the AI see service prices via list_doctors", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
     await prisma.service.create({
-      data: { clinicId: clinic.id, doctorId: doctor.id, name: "ویزیت عمومی", price: 250000 },
+      data: {
+        clinicId: clinic.id,
+        name: "ویزیت عمومی",
+        price: 250000,
+        doctors: { connect: { id: doctor.id } },
+      },
     });
 
     mockCreate.mockImplementationOnce(async () => toolCallResponse("list_doctors", {}));
