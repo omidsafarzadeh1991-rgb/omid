@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookAppointment, cancelAppointment, getSlotsForDay } from "@/lib/booking";
+import { bookAppointment, buildMonthGrid, cancelAppointment, getSlotsForDay } from "@/lib/booking";
 import { prisma } from "@/lib/prisma";
 import { createTestClinicWithDoctor } from "./helpers";
 
@@ -315,5 +315,66 @@ describe("bookAppointment", () => {
       orderBy: { createdAt: "asc" },
     });
     expect(logs.map((l) => l.action)).toEqual(["BOOKED", "CANCELLED", "BOOKED"]);
+  });
+});
+
+describe("buildMonthGrid", () => {
+  it("marks a booked day's free count one lower than an identical unbooked day", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+    const dayStart = new Date(startTime);
+    dayStart.setHours(0, 0, 0, 0);
+    const monthDate = new Date(startTime.getFullYear(), startTime.getMonth(), 1);
+
+    const before = await buildMonthGrid(clinic.id, doctor.id, monthDate);
+    const freeCountBefore =
+      before.days.find((d) => d.date.getTime() === dayStart.getTime())?.freeCount ?? 0;
+
+    await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime,
+      patientName: "تست",
+      patientPhone: "09120000020",
+      source: "MANUAL",
+    });
+
+    const after = await buildMonthGrid(clinic.id, doctor.id, monthDate);
+    const freeCountAfter =
+      after.days.find((d) => d.date.getTime() === dayStart.getTime())?.freeCount ?? 0;
+
+    expect(freeCountAfter).toBe(freeCountBefore - 1);
+  });
+
+  it("marks non-working days as not bookable with zero free slots", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const friday = nextFriday9am();
+    const monthDate = new Date(friday.getFullYear(), friday.getMonth(), 1);
+
+    const { days } = await buildMonthGrid(clinic.id, doctor.id, monthDate);
+    const fridayCell = days.find(
+      (d) => d.inMonth && d.date.getDay() === 5 && d.date.getTime() === new Date(friday).setHours(0, 0, 0, 0)
+    );
+
+    expect(fridayCell?.isWorkingDay).toBe(false);
+    expect(fridayCell?.freeCount).toBe(0);
+  });
+
+  it("marks today as isToday and past days as isPast, both excluded from bookable free counts", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const today = new Date();
+    const monthDate = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const { days } = await buildMonthGrid(clinic.id, doctor.id, monthDate);
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayCell = days.find((d) => d.date.getTime() === todayStart.getTime());
+
+    expect(todayCell?.isToday).toBe(true);
+    expect(todayCell?.isPast).toBe(false);
+
+    const pastCells = days.filter((d) => d.date.getTime() < todayStart.getTime());
+    expect(pastCells.every((d) => d.isPast)).toBe(true);
+    expect(pastCells.every((d) => d.freeCount === 0)).toBe(true);
   });
 });

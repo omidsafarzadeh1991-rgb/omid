@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/dal";
-import { prisma } from "@/lib/prisma";
-import { getSlotsForDay, generateDaySlotTimes } from "@/lib/booking";
+import { buildMonthGrid, getSlotsForDay } from "@/lib/booking";
 import { formatToman } from "@/lib/format";
-import MonthCalendar, { type CalendarDay } from "./MonthCalendar";
+import MonthCalendar from "./MonthCalendar";
 import BookingForm from "./BookingForm";
 
 function parseMonthParam(value: string | undefined): Date {
@@ -35,46 +34,10 @@ export default async function BookPage({
   const { doctorId } = await params;
   const { month: monthParam, date: dateParam } = await searchParams;
 
-  const doctor = await prisma.doctor.findFirst({
-    where: { id: doctorId, clinicId: session.clinicId },
-    include: { services: true, specialties: true, schedules: true },
-  });
-  if (!doctor) notFound();
-
-  const scheduleByDay = new Map(doctor.schedules.map((s) => [s.dayOfWeek, s]));
   const monthDate = parseMonthParam(monthParam);
-  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
-
-  const appointmentsInMonth = await prisma.appointment.findMany({
-    where: { doctorId: doctor.id, startTime: { gte: monthStart, lt: monthEnd } },
-    select: { startTime: true },
-  });
-  const bookedTimes = new Set(appointmentsInMonth.map((a) => a.startTime.getTime()));
-
-  const now = new Date().getTime();
-  const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
-  const gridStartOffset = (monthStart.getDay() + 1) % 7; // شنبه اول ستون است
-  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-  const totalCells = Math.ceil((gridStartOffset + daysInMonth) / 7) * 7;
-
-  const days: CalendarDay[] = Array.from({ length: totalCells }, (_, i) => {
-    const date = new Date(monthStart.getTime());
-    date.setDate(date.getDate() - gridStartOffset + i);
-    const inMonth = date.getMonth() === monthDate.getMonth();
-    const schedule = scheduleByDay.get(date.getDay());
-    const isPast = date.getTime() < todayStart;
-    const isToday = date.getTime() === todayStart;
-
-    let freeCount = 0;
-    if (inMonth && schedule && !isPast) {
-      freeCount = generateDaySlotTimes(schedule, doctor.slotMinutes, date).filter(
-        (t) => !bookedTimes.has(t.getTime()) && t.getTime() > now
-      ).length;
-    }
-
-    return { date, inMonth, isWorkingDay: !!schedule, isPast, isToday, freeCount };
-  });
+  const { doctor, days } = await buildMonthGrid(session.clinicId, doctorId, monthDate).catch(() =>
+    notFound()
+  );
 
   const selectedDate = parseDateParam(dateParam);
   const slots = selectedDate

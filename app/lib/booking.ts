@@ -82,6 +82,70 @@ export async function getSlotsForDay(
   );
 }
 
+export type MonthGridDay = {
+  date: Date;
+  inMonth: boolean;
+  isWorkingDay: boolean;
+  isPast: boolean;
+  isToday: boolean;
+  freeCount: number;
+};
+
+/**
+ * Builds the full month grid (one bulk appointment query, not N+1 per day)
+ * used by both the full booking page and the dashboard's quick-book modal,
+ * so the two surfaces can never drift on which days/slots count as free.
+ */
+export async function buildMonthGrid(
+  clinicId: string,
+  doctorId: string,
+  monthDate: Date
+): Promise<{
+  doctor: Prisma.DoctorGetPayload<{ include: { services: true; specialties: true; schedules: true } }>;
+  days: MonthGridDay[];
+}> {
+  const doctor = await prisma.doctor.findFirstOrThrow({
+    where: { id: doctorId, clinicId },
+    include: { services: true, specialties: true, schedules: true },
+  });
+
+  const scheduleByDay = new Map(doctor.schedules.map((s) => [s.dayOfWeek, s]));
+  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
+
+  const appointmentsInMonth = await prisma.appointment.findMany({
+    where: { doctorId, startTime: { gte: monthStart, lt: monthEnd } },
+    select: { startTime: true },
+  });
+  const bookedTimes = new Set(appointmentsInMonth.map((a) => a.startTime.getTime()));
+
+  const now = Date.now();
+  const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+  const gridStartOffset = (monthStart.getDay() + 1) % 7; // شنبه اول ستون است
+  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+  const totalCells = Math.ceil((gridStartOffset + daysInMonth) / 7) * 7;
+
+  const days: MonthGridDay[] = Array.from({ length: totalCells }, (_, i) => {
+    const date = new Date(monthStart.getTime());
+    date.setDate(date.getDate() - gridStartOffset + i);
+    const inMonth = date.getMonth() === monthDate.getMonth();
+    const schedule = scheduleByDay.get(date.getDay());
+    const isPast = date.getTime() < todayStart;
+    const isToday = date.getTime() === todayStart;
+
+    let freeCount = 0;
+    if (inMonth && schedule && !isPast) {
+      freeCount = generateDaySlotTimes(schedule, doctor.slotMinutes, date).filter(
+        (t) => !bookedTimes.has(t.getTime()) && t.getTime() > now
+      ).length;
+    }
+
+    return { date, inMonth, isWorkingDay: !!schedule, isPast, isToday, freeCount };
+  });
+
+  return { doctor, days };
+}
+
 export type BookAppointmentInput = {
   clinicId: string;
   doctorId: string;

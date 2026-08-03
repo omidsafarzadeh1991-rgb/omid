@@ -3,8 +3,90 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/dal";
-import { bookAppointment, cancelAppointment } from "@/lib/booking";
+import { bookAppointment, buildMonthGrid, cancelAppointment, getSlotsForDay } from "@/lib/booking";
+import { formatToman } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+
+function parseMonthParam(value: string | undefined): Date {
+  if (value) {
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+    if (match) {
+      return new Date(Number(match[1]), Number(match[2]) - 1, 1);
+    }
+  }
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), 1);
+}
+
+function toMonthParam(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export type QuickBookDay = {
+  dateParam: string;
+  inMonth: boolean;
+  isWorkingDay: boolean;
+  isPast: boolean;
+  isToday: boolean;
+  freeCount: number;
+};
+
+export type QuickBookCalendar = {
+  doctorName: string;
+  services: { name: string; price: string | null }[];
+  monthParam: string;
+  prevMonthParam: string;
+  nextMonthParam: string;
+  monthLabel: string;
+  days: QuickBookDay[];
+};
+
+/** Data for the dashboard's quick-book modal - same month-grid logic as the full /book page. */
+export async function getQuickBookCalendarAction(
+  doctorId: string,
+  monthParam?: string
+): Promise<QuickBookCalendar | null> {
+  const session = await requireSession();
+  const monthDate = parseMonthParam(monthParam);
+
+  const result = await buildMonthGrid(session.clinicId, doctorId, monthDate).catch(() => null);
+  if (!result) return null;
+  const { doctor, days } = result;
+
+  return {
+    doctorName: doctor.name,
+    services: doctor.services.map((s) => ({
+      name: s.name,
+      price: s.price != null ? formatToman(s.price) : null,
+    })),
+    monthParam: toMonthParam(monthDate),
+    prevMonthParam: toMonthParam(new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1)),
+    nextMonthParam: toMonthParam(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)),
+    monthLabel: new Intl.DateTimeFormat("fa-IR", { year: "numeric", month: "long" }).format(monthDate),
+    days: days.map((day) => ({
+      dateParam: day.date.toISOString().slice(0, 10),
+      inMonth: day.inMonth,
+      isWorkingDay: day.isWorkingDay,
+      isPast: day.isPast,
+      isToday: day.isToday,
+      freeCount: day.freeCount,
+    })),
+  };
+}
+
+export type QuickBookSlot = { startTime: string; isFree: boolean };
+
+export async function getQuickBookSlotsAction(
+  doctorId: string,
+  dateParam: string
+): Promise<QuickBookSlot[]> {
+  const session = await requireSession();
+  const day = new Date(`${dateParam}T00:00:00`);
+  if (Number.isNaN(day.getTime())) return [];
+
+  const slots = await getSlotsForDay(session.clinicId, doctorId, day).catch(() => []);
+  return slots.map((s) => ({ startTime: s.startTime.toISOString(), isFree: s.isFree }));
+}
 
 const CreateAppointmentSchema = z.object({
   doctorId: z.string().min(1),

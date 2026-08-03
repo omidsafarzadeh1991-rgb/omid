@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
-import { cancelManualAppointmentAction } from "@/app/actions/booking";
+import NewAppointmentCard from "./NewAppointmentCard";
 import SourceBadge from "./SourceBadge";
+import UpcomingList from "./UpcomingList";
 
 export default async function DashboardPage() {
   const session = await requireSession();
@@ -72,7 +73,7 @@ export default async function DashboardPage() {
   const maxSourceCount = Math.max(1, ...bookedBySource.map((s) => s._count._all));
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-9 px-4 py-10 sm:py-12">
       {doctors.length === 0 ? (
         <section className="card animate-in p-6 text-sm text-slate-500">
           {isAdmin ? (
@@ -88,25 +89,7 @@ export default async function DashboardPage() {
           )}
         </section>
       ) : (
-        <section
-          className="animate-in rounded-2xl p-6"
-          style={{
-            background: "linear-gradient(135deg, #2c527f, #1e3a5f)",
-            boxShadow:
-              "0 4px 0 #14283f, 0 20px 40px -16px rgba(30,58,95,0.5)",
-          }}
-        >
-          <h2 className="mb-3 text-lg font-semibold text-white">
-            ثبت نوبت جدید
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            {doctors.map((doctor) => (
-              <Link key={doctor.id} href={`/book/${doctor.id}`} className="btn btn-light">
-                نوبت برای {doctor.name}
-              </Link>
-            ))}
-          </div>
-        </section>
+        <NewAppointmentCard doctors={doctors.map((d) => ({ id: d.id, name: d.name }))} />
       )}
 
       {isAdmin && (
@@ -114,11 +97,11 @@ export default async function DashboardPage() {
           {stats.map((stat, i) => (
             <div
               key={stat.label}
-              className="card animate-in p-4 text-center"
+              className="card card-hover animate-in p-5 text-center"
               style={{ animationDelay: `${0.05 * i}s` }}
             >
               <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-              <p className="mt-1 text-xs text-slate-500">{stat.label}</p>
+              <p className="mt-1.5 text-xs text-slate-500">{stat.label}</p>
             </div>
           ))}
         </section>
@@ -158,48 +141,7 @@ export default async function DashboardPage() {
         <h2 className="mb-4 text-lg font-semibold text-slate-900">
           نوبت‌های پیش رو
         </h2>
-        {upcomingAppointments.length === 0 ? (
-          <p className="text-sm text-slate-500">نوبتی ثبت نشده است.</p>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {upcomingAppointments.map((appt) => (
-              <li
-                key={appt.id}
-                className="flex items-center justify-between py-3"
-              >
-                <div>
-                  <div className="mb-1 flex items-center gap-2">
-                    <p className="font-medium text-slate-800">
-                      {appt.patientName}{" "}
-                      <span className="text-xs text-slate-400">
-                        ({appt.patientPhone})
-                      </span>
-                    </p>
-                    <SourceBadge source={appt.source} />
-                  </div>
-                  <p className="text-sm text-slate-500">
-                    {appt.doctor.name} —{" "}
-                    {new Intl.DateTimeFormat("fa-IR", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(appt.startTime)}
-                    {appt.serviceName && <> · {appt.serviceName}</>}
-                  </p>
-                </div>
-                <form
-                  action={async () => {
-                    "use server";
-                    await cancelManualAppointmentAction(appt.id);
-                  }}
-                >
-                  <button type="submit" className="btn btn-danger btn-sm">
-                    لغو
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
+        <UpcomingList appointments={upcomingAppointments} />
       </section>
     </main>
   );
