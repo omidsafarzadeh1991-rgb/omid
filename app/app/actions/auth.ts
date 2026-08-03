@@ -89,6 +89,7 @@ export async function logoutAction() {
 
 const ChangePasswordSchema = z
   .object({
+    currentPassword: z.string().min(1, "رمز عبور فعلی را وارد کنید."),
     newPassword: z.string().min(8, "رمز عبور باید حداقل ۸ کاراکتر باشد."),
     confirmPassword: z.string().min(1, "تکرار رمز عبور را وارد کنید."),
   })
@@ -99,7 +100,7 @@ const ChangePasswordSchema = z
 
 export type ChangePasswordFormState =
   | {
-      errors?: Partial<Record<"newPassword" | "confirmPassword", string[]>>;
+      errors?: Partial<Record<"currentPassword" | "newPassword" | "confirmPassword", string[]>>;
       message?: string;
     }
   | undefined;
@@ -111,11 +112,20 @@ export async function changePasswordAction(
   const session = await requireSessionAllowingPasswordChange();
 
   const validated = ChangePasswordSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
     newPassword: formData.get("newPassword"),
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!validated.success) {
     return { errors: validated.error.flatten().fieldErrors };
+  }
+
+  const staff = await prisma.staffUser.findUniqueOrThrow({
+    where: { id: session.staffId },
+  });
+  const currentMatches = await bcrypt.compare(validated.data.currentPassword, staff.passwordHash);
+  if (!currentMatches) {
+    return { message: "رمز عبور فعلی نادرست است." };
   }
 
   const passwordHash = await bcrypt.hash(validated.data.newPassword, BCRYPT_ROUNDS);

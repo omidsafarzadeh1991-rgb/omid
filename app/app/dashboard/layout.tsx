@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { logoutAction } from "@/app/actions/auth";
@@ -50,14 +51,22 @@ export default async function DashboardLayout({
           />
         </div>
 
-        <form action={logoutAction} className="relative z-10">
-          <button
-            type="submit"
+        <div className="relative z-10 flex flex-col gap-2">
+          <Link
+            href="/dashboard/change-password"
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
           >
-            خروج
-          </button>
-        </form>
+            تغییر رمز عبور
+          </Link>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+            >
+              خروج
+            </button>
+          </form>
+        </div>
       </aside>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
