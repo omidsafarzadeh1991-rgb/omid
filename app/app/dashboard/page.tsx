@@ -91,9 +91,9 @@ export default async function DashboardPage() {
         <section
           className="animate-in rounded-2xl p-6"
           style={{
-            background: "linear-gradient(135deg, #2dd4bf, #0d9488)",
+            background: "linear-gradient(135deg, #2c527f, #1e3a5f)",
             boxShadow:
-              "0 4px 0 #0f766e, 0 20px 40px -16px rgba(13,148,136,0.5)",
+              "0 4px 0 #14283f, 0 20px 40px -16px rgba(30,58,95,0.5)",
           }}
         >
           <h2 className="mb-3 text-lg font-semibold text-white">

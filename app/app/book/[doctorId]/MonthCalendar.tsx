@@ -6,6 +6,7 @@ export type CalendarDay = {
   inMonth: boolean;
   isWorkingDay: boolean;
   isPast: boolean;
+  isToday: boolean;
   freeCount: number;
 };
 
@@ -74,7 +75,7 @@ export default function MonthCalendar({
             !day.inMonth && "text-slate-200",
             day.inMonth && !day.isWorkingDay && "text-slate-300",
             day.inMonth && day.isWorkingDay && day.isPast && "text-slate-300",
-            isSelected && "scale-105 bg-teal-600 text-white shadow-[0_3px_0_#0f766e]",
+            isSelected && "scale-105 bg-[#1e3a5f] text-white shadow-[0_3px_0_#14283f]",
             isBookable && !isSelected && !isFull &&
               "border border-teal-200 bg-teal-50 text-teal-800 hover:-translate-y-0.5 hover:border-teal-400",
             isFull && !isSelected && "border border-slate-200 text-slate-400 line-through",
@@ -84,8 +85,11 @@ export default function MonthCalendar({
 
           const content = (
             <>
-              <span className="font-semibold">
+              <span className="relative font-semibold">
                 {new Intl.DateTimeFormat("fa-IR", { day: "numeric" }).format(day.date)}
+                {day.isToday && !isSelected && (
+                  <span className="absolute -top-1.5 -left-2.5 h-1.5 w-1.5 rounded-full bg-[#ffb703]" />
+                )}
               </span>
               {day.inMonth && day.isWorkingDay && !day.isPast && (
                 <span className="mt-0.5 text-[10px] leading-none opacity-80">

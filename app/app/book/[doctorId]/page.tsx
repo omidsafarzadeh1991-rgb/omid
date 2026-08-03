@@ -53,6 +53,7 @@ export default async function BookPage({
   const bookedTimes = new Set(appointmentsInMonth.map((a) => a.startTime.getTime()));
 
   const now = new Date().getTime();
+  const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
   const gridStartOffset = (monthStart.getDay() + 1) % 7; // شنبه اول ستون است
   const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
   const totalCells = Math.ceil((gridStartOffset + daysInMonth) / 7) * 7;
@@ -62,7 +63,8 @@ export default async function BookPage({
     date.setDate(date.getDate() - gridStartOffset + i);
     const inMonth = date.getMonth() === monthDate.getMonth();
     const schedule = scheduleByDay.get(date.getDay());
-    const isPast = date.getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+    const isPast = date.getTime() < todayStart;
+    const isToday = date.getTime() === todayStart;
 
     let freeCount = 0;
     if (inMonth && schedule && !isPast) {
@@ -71,7 +73,7 @@ export default async function BookPage({
       ).length;
     }
 
-    return { date, inMonth, isWorkingDay: !!schedule, isPast, freeCount };
+    return { date, inMonth, isWorkingDay: !!schedule, isPast, isToday, freeCount };
   });
 
   const selectedDate = parseDateParam(dateParam);

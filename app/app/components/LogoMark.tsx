@@ -5,8 +5,8 @@ export default function LogoMark({ size = 56 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        background: "linear-gradient(180deg, #2dd4bf, #0d9488)",
-        boxShadow: "0 3px 0 #0f766e, 0 10px 18px -6px rgba(13, 148, 136, 0.5)",
+        background: "linear-gradient(180deg, #2c527f, #1e3a5f)",
+        boxShadow: "0 3px 0 #14283f, 0 10px 18px -6px rgba(30, 58, 95, 0.5)",
       }}
     >
       <svg

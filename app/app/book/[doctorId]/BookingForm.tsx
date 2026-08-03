@@ -61,7 +61,7 @@ export default function BookingForm({
                   !slot.isFree
                     ? "cursor-not-allowed bg-slate-50 text-slate-300 line-through"
                     : isSelected
-                      ? "scale-105 bg-teal-600 text-white shadow-[0_3px_0_#0f766e]"
+                      ? "scale-105 bg-[#1e3a5f] text-white shadow-[0_3px_0_#14283f]"
                       : "border border-slate-300 text-slate-700 hover:-translate-y-0.5 hover:border-teal-300 hover:bg-teal-50"
                 }`}
               >

@@ -74,7 +74,9 @@ export default async function DoctorsPage() {
                   className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
                 >
                   {s.name}
-                  {s.price != null && ` · ${formatToman(s.price)}`}
+                  {s.price != null && (
+                    <span className="text-amber-700"> · {formatToman(s.price)}</span>
+                  )}
                 </span>
               ))}
             </div>
@@ -127,7 +129,9 @@ export default async function DoctorsPage() {
                             className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
                           >
                             {s.name}
-                            {s.price != null && ` · ${formatToman(s.price)}`}
+                            {s.price != null && (
+                              <span className="text-amber-700"> · {formatToman(s.price)}</span>
+                            )}
                           </span>
                         ))}
                       </div>
