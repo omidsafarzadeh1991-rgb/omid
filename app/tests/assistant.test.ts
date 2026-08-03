@@ -2,18 +2,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createTestClinicWithDoctor } from "./helpers";
 
-function listDoctorsToolUseResponse() {
-  return {
-    content: [{ type: "tool_use", id: "toolu_list", name: "list_doctors", input: {} }],
-    stop_reason: "tool_use",
-  };
-}
-
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
-vi.mock("@anthropic-ai/sdk", () => ({
-  default: vi.fn().mockImplementation(function AnthropicMock() {
-    return { messages: { create: mockCreate } };
+vi.mock("openai", () => ({
+  default: vi.fn().mockImplementation(function OpenAIMock() {
+    return { chat: { completions: { create: mockCreate } } };
   }),
 }));
 
@@ -30,24 +23,33 @@ function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-function bookToolUseResponse(input: Record<string, unknown>) {
+function toolCallResponse(name: string, args: Record<string, unknown>) {
   return {
-    content: [{ type: "tool_use", id: "toolu_1", name: "book_appointment", input }],
-    stop_reason: "tool_use",
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name, arguments: JSON.stringify(args) },
+            },
+          ],
+        },
+      },
+    ],
   };
 }
 
 function endTurnResponse(text: string) {
-  return { content: [{ type: "text", text }], stop_reason: "end_turn" };
+  return { choices: [{ message: { role: "assistant", content: text, tool_calls: undefined } }] };
 }
 
-function hasToolResult(messages: unknown[]): boolean {
-  const last = messages[messages.length - 1] as { role: string; content: unknown };
-  return (
-    last.role === "user" &&
-    Array.isArray(last.content) &&
-    (last.content as { type: string }[]).some((b) => b.type === "tool_result")
-  );
+function hasToolResult(messages: { role: string }[]): boolean {
+  const last = messages[messages.length - 1];
+  return last.role === "tool";
 }
 
 describe("runAssistantTurn", () => {
@@ -60,7 +62,7 @@ describe("runAssistantTurn", () => {
     const startTime = nextMonday9am();
 
     mockCreate.mockImplementationOnce(async () =>
-      bookToolUseResponse({
+      toolCallResponse("book_appointment", {
         doctorId: doctor.id,
         date: isoDate(startTime),
         time: "09:00",
@@ -123,18 +125,20 @@ describe("runAssistantTurn", () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
     const startTime = nextMonday9am();
 
-    mockCreate.mockImplementation(async ({ messages }: { messages: unknown[] }) => {
-      if (hasToolResult(messages)) {
-        return endTurnResponse("انجام شد.");
+    mockCreate.mockImplementation(
+      async ({ messages }: { messages: { role: string }[] }) => {
+        if (hasToolResult(messages)) {
+          return endTurnResponse("انجام شد.");
+        }
+        return toolCallResponse("book_appointment", {
+          doctorId: doctor.id,
+          date: isoDate(startTime),
+          time: "09:00",
+          patientName: "بیمار همزمان",
+          patientPhone: "09120000000",
+        });
       }
-      return bookToolUseResponse({
-        doctorId: doctor.id,
-        date: isoDate(startTime),
-        time: "09:00",
-        patientName: "بیمار همزمان",
-        patientPhone: "09120000000",
-      });
-    });
+    );
 
     await Promise.all([
       runAssistantTurn({
@@ -165,7 +169,7 @@ describe("runAssistantTurn", () => {
       data: { clinicId: clinic.id, doctorId: doctor.id, name: "ویزیت عمومی", price: 250000 },
     });
 
-    mockCreate.mockImplementationOnce(async () => listDoctorsToolUseResponse());
+    mockCreate.mockImplementationOnce(async () => toolCallResponse("list_doctors", {}));
     mockCreate.mockImplementationOnce(async () => endTurnResponse("پزشکان و قیمت‌ها را نشان دادم."));
 
     await runAssistantTurn({
@@ -186,14 +190,8 @@ describe("runAssistantTurn", () => {
       },
     });
     const history = JSON.parse(conversation!.history);
-    const toolResultMessage = history.find(
-      (m: { role: string; content: unknown }) =>
-        m.role === "user" &&
-        Array.isArray(m.content) &&
-        (m.content as { type: string }[]).some((b) => b.type === "tool_result")
-    );
-    const toolResultContent = toolResultMessage.content[0].content as string;
-    const doctors = JSON.parse(toolResultContent);
+    const toolResultMessage = history.find((m: { role: string }) => m.role === "tool");
+    const doctors = JSON.parse(toolResultMessage.content as string);
     expect(doctors[0].services).toEqual([
       { name: "ویزیت عمومی", price: "۲۵۰٬۰۰۰ تومان" },
     ]);
@@ -202,10 +200,6 @@ describe("runAssistantTurn", () => {
   it("includes the admin's custom instructions in the system prompt but keeps hard rules in force", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
     void doctor;
-    await prisma.clinic.update({
-      where: { id: clinic.id },
-      data: { assistantInstructions: "آدرس مطب: خیابان ولیعصر، پلاک ۱۲." },
-    });
 
     mockCreate.mockImplementationOnce(async () => endTurnResponse("باشه!"));
 
@@ -218,9 +212,13 @@ describe("runAssistantTurn", () => {
       userText: "آدرس مطب کجاست؟",
     });
 
-    const call = mockCreate.mock.calls[0][0] as { system: string };
-    expect(call.system).toContain("آدرس مطب: خیابان ولیعصر، پلاک ۱۲.");
-    expect(call.system).toContain("هرگز مشاورهٔ پزشکی یا تشخیص نده");
-    expect(call.system).toContain("همیشه قوانین بالا اولویت دارند");
+    const call = mockCreate.mock.calls[0][0] as {
+      messages: { role: string; content: string }[];
+    };
+    const systemContent = call.messages[0].content;
+    expect(call.messages[0].role).toBe("system");
+    expect(systemContent).toContain("آدرس مطب: خیابان ولیعصر، پلاک ۱۲.");
+    expect(systemContent).toContain("هرگز مشاورهٔ پزشکی یا تشخیص نده");
+    expect(systemContent).toContain("همیشه قوانین بالا اولویت دارند");
   });
 });

@@ -5,9 +5,9 @@ import { registerClinic } from "@/lib/auth";
 
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
-vi.mock("@anthropic-ai/sdk", () => ({
-  default: vi.fn().mockImplementation(function AnthropicMock() {
-    return { messages: { create: mockCreate } };
+vi.mock("openai", () => ({
+  default: vi.fn().mockImplementation(function OpenAIMock() {
+    return { chat: { completions: { create: mockCreate } } };
   }),
 }));
 
@@ -80,8 +80,15 @@ describe("Telegram webhook route", () => {
   it("accepts a correctly-signed request and replies via Telegram", async () => {
     const { clinicId, secret } = await createClinicWithTelegramBot();
     mockCreate.mockImplementationOnce(async () => ({
-      content: [{ type: "text", text: "سلام! چه کمکی از دستم بر می‌آید؟" }],
-      stop_reason: "end_turn",
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: "سلام! چه کمکی از دستم بر می‌آید؟",
+            tool_calls: undefined,
+          },
+        },
+      ],
     }));
 
     const response = await POST(

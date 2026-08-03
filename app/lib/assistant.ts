@@ -1,53 +1,63 @@
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import { bookAppointment, getSlotsForDay } from "@/lib/booking";
 import { formatSchedules } from "@/lib/weekdays";
 import { formatToman } from "@/lib/format";
 import type { BotPlatform } from "@/generated/prisma/client";
 
-const MODEL = process.env.ASSISTANT_MODEL || "claude-haiku-4-5";
+const MODEL = process.env.AI_MODEL || "openai/gpt-4o-mini";
+const BASE_URL = process.env.AI_BASE_URL || "https://openrouter.ai/api/v1";
 const MAX_TOOL_ITERATIONS = 6;
 
-function getClient(): Anthropic {
-  return new Anthropic();
+function getClient(): OpenAI {
+  return new OpenAI({ apiKey: process.env.AI_API_KEY, baseURL: BASE_URL });
 }
 
-const TOOLS: Anthropic.Tool[] = [
+const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
-    name: "list_doctors",
-    description:
-      "لیست پزشکان این کلینیک را برمی‌گرداند، همراه با روزها/ساعات کاری و خدماتشان.",
-    input_schema: { type: "object", properties: {}, required: [] },
-  },
-  {
-    name: "check_availability",
-    description:
-      "ساعت‌های خالیِ یک پزشک در یک روز مشخص را برمی‌گرداند. همیشه قبل از پیشنهاد ساعت به بیمار از این ابزار استفاده کن، هرگز حدس نزن.",
-    input_schema: {
-      type: "object",
-      properties: {
-        doctorId: { type: "string", description: "شناسهٔ پزشک از list_doctors" },
-        date: { type: "string", description: "تاریخ میلادی به شکل YYYY-MM-DD" },
-      },
-      required: ["doctorId", "date"],
+    type: "function",
+    function: {
+      name: "list_doctors",
+      description:
+        "لیست پزشکان این کلینیک را برمی‌گرداند، همراه با روزها/ساعات کاری و خدماتشان.",
+      parameters: { type: "object", properties: {}, required: [] },
     },
   },
   {
-    name: "book_appointment",
-    description:
-      "نوبت را نهایی و ثبت می‌کند. فقط وقتی پزشک، تاریخ، ساعت، نام و شمارهٔ تماس بیمار مشخص است این ابزار را صدا بزن؛ همان لحظه که این‌ها مشخص شد، بدون تاخیر ثبت کن.",
-    input_schema: {
-      type: "object",
-      properties: {
-        doctorId: { type: "string" },
-        date: { type: "string", description: "تاریخ میلادی به شکل YYYY-MM-DD" },
-        time: { type: "string", description: "ساعت به شکل HH:MM (۲۴ ساعته)" },
-        patientName: { type: "string" },
-        patientPhone: { type: "string", description: "شمارهٔ موبایل بیمار" },
-        serviceName: { type: "string", description: "نام خدمت، در صورت وجود" },
+    type: "function",
+    function: {
+      name: "check_availability",
+      description:
+        "ساعت‌های خالیِ یک پزشک در یک روز مشخص را برمی‌گرداند. همیشه قبل از پیشنهاد ساعت به بیمار از این ابزار استفاده کن، هرگز حدس نزن.",
+      parameters: {
+        type: "object",
+        properties: {
+          doctorId: { type: "string", description: "شناسهٔ پزشک از list_doctors" },
+          date: { type: "string", description: "تاریخ میلادی به شکل YYYY-MM-DD" },
+        },
+        required: ["doctorId", "date"],
       },
-      required: ["doctorId", "date", "time", "patientName", "patientPhone"],
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "book_appointment",
+      description:
+        "نوبت را نهایی و ثبت می‌کند. فقط وقتی پزشک، تاریخ، ساعت، نام و شمارهٔ تماس بیمار مشخص است این ابزار را صدا بزن؛ همان لحظه که این‌ها مشخص شد، بدون تاخیر ثبت کن.",
+      parameters: {
+        type: "object",
+        properties: {
+          doctorId: { type: "string" },
+          date: { type: "string", description: "تاریخ میلادی به شکل YYYY-MM-DD" },
+          time: { type: "string", description: "ساعت به شکل HH:MM (۲۴ ساعته)" },
+          patientName: { type: "string" },
+          patientPhone: { type: "string", description: "شمارهٔ موبایل بیمار" },
+          serviceName: { type: "string", description: "نام خدمت، در صورت وجود" },
+        },
+        required: ["doctorId", "date", "time", "patientName", "patientPhone"],
+      },
     },
   },
 ];
@@ -199,11 +209,16 @@ export type AssistantTurnInput = {
   userText: string;
 };
 
+type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
+
 /**
  * Runs one full assistant turn for an incoming chat message: loads this
- * chat's history, lets Claude use tools (all reads/writes go through
+ * chat's history, lets the model use tools (all reads/writes go through
  * lib/booking.ts, so the AI never decides availability itself), and
- * persists the updated history for the next incoming message.
+ * persists the updated history for the next incoming message. Talks to
+ * any OpenAI-compatible provider (OpenRouter by default, or OpenAI, or a
+ * self-hosted endpoint) via AI_BASE_URL/AI_API_KEY/AI_MODEL - not tied to
+ * one specific AI company.
  */
 export async function runAssistantTurn(input: AssistantTurnInput): Promise<string> {
   const conversation = await prisma.botConversation.upsert({
@@ -223,52 +238,46 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
     update: {},
   });
 
-  const messages: Anthropic.MessageParam[] = JSON.parse(conversation.history);
-  messages.push({ role: "user", content: input.userText });
+  const history: ChatMessage[] = JSON.parse(conversation.history);
+  history.push({ role: "user", content: input.userText });
 
   const client = getClient();
   const system = buildSystemPrompt(input.clinicName, input.assistantInstructions ?? "");
   let replyText = "";
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-    const response = await client.messages.create({
+    const response = await client.chat.completions.create({
       model: MODEL,
-      max_tokens: 1024,
-      system,
+      messages: [{ role: "system", content: system }, ...history],
       tools: TOOLS,
-      messages,
     });
 
-    messages.push({ role: "assistant", content: response.content });
+    const message = response.choices[0].message;
+    history.push({
+      role: "assistant",
+      content: message.content,
+      tool_calls: message.tool_calls,
+    } as ChatMessage);
+    replyText = (message.content ?? "").trim();
 
-    const textBlocks = response.content.filter(
-      (block): block is Anthropic.TextBlock => block.type === "text"
-    );
-    replyText = textBlocks.map((block) => block.text).join("\n").trim();
-
-    if (response.stop_reason !== "tool_use") {
+    if (!message.tool_calls || message.tool_calls.length === 0) {
       break;
     }
 
-    const toolUseBlocks = response.content.filter(
-      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
-    );
-
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
-    for (const tool of toolUseBlocks) {
-      const result = await executeTool(
-        input.clinicId,
-        tool.name,
-        (tool.input ?? {}) as Record<string, unknown>
-      );
-      toolResults.push({ type: "tool_result", tool_use_id: tool.id, content: result });
+    for (const toolCall of message.tool_calls) {
+      if (toolCall.type !== "function") continue;
+      const toolInput = JSON.parse(toolCall.function.arguments || "{}") as Record<
+        string,
+        unknown
+      >;
+      const result = await executeTool(input.clinicId, toolCall.function.name, toolInput);
+      history.push({ role: "tool", tool_call_id: toolCall.id, content: result });
     }
-    messages.push({ role: "user", content: toolResults });
   }
 
   await prisma.botConversation.update({
     where: { id: conversation.id },
-    data: { history: JSON.stringify(messages) },
+    data: { history: JSON.stringify(history) },
   });
 
   return replyText || "متوجه نشدم، می‌شود دوباره توضیح دهید؟";
