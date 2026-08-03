@@ -8,7 +8,7 @@ function uniqueEmail() {
 }
 
 describe("registerClinic / verifyLogin", () => {
-  it("registers a clinic with its first admin and allows login", async () => {
+  it("registers a clinic with its founding account as OWNER and allows login", async () => {
     const email = uniqueEmail();
     const registered = await registerClinic({
       clinicName: "کلینیک تست",
@@ -21,7 +21,7 @@ describe("registerClinic / verifyLogin", () => {
     const login = await verifyLogin(email, "SuperSecret123");
     expect(login.ok).toBe(true);
     if (login.ok) {
-      expect(login.role).toBe("ADMIN");
+      expect(login.role).toBe("OWNER");
     }
   });
 

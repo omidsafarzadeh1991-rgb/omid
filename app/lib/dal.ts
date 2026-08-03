@@ -9,3 +9,12 @@ export async function requireSession(): Promise<SessionPayload> {
   }
   return session;
 }
+
+/** For pages/actions reserved for the single per-install OWNER account. */
+export async function requireOwner(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "OWNER") {
+    redirect("/dashboard");
+  }
+  return session;
+}

@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma, type DoctorSchedule } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sendBookingConfirmation } from "@/lib/reminders";
 
 export type AppointmentSource =
   | "MANUAL"
@@ -226,6 +227,10 @@ export async function bookAppointment(
 
       return created;
     });
+
+    // Sending the confirmation SMS is best-effort and must never make an
+    // otherwise-successful booking look like it failed.
+    await sendBookingConfirmation(appointment.id).catch(() => undefined);
 
     return { ok: true, appointmentId: appointment.id };
   } catch (error) {

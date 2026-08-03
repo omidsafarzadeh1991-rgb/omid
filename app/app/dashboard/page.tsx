@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
+import { canManageClinic } from "@/lib/roles";
 import NewAppointmentCard from "./NewAppointmentCard";
 import SourceBadge from "./SourceBadge";
 import UpcomingList from "./UpcomingList";
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  const isAdmin = session.role === "ADMIN";
+  const isAdmin = canManageClinic(session.role);
 
   const now = new Date();
   const todayStart = new Date(now);

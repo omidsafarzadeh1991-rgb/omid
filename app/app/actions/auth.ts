@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { verifyLogin } from "@/lib/auth";
 import { createSession, deleteSession } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { logSecurityEvent } from "@/lib/security-log";
 
 const LoginSchema = z.object({
   email: z.email("ایمیل معتبر وارد کنید."),
@@ -35,6 +37,10 @@ export async function loginAction(
     validated.data.password
   );
   if (!result.ok) {
+    const clinic = await prisma.clinic.findFirst({ select: { id: true } });
+    if (clinic) {
+      await logSecurityEvent(clinic.id, "LOGIN_FAILED", validated.data.email);
+    }
     return { message: "ایمیل یا رمز عبور نادرست است." };
   }
 
@@ -43,6 +49,12 @@ export async function loginAction(
     clinicId: result.clinicId,
     role: result.role,
   });
+  await logSecurityEvent(
+    result.clinicId,
+    "LOGIN_SUCCESS",
+    validated.data.email,
+    result.staffId
+  );
 
   redirect("/dashboard");
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
+import { canManageClinic } from "@/lib/roles";
 import { formatSchedules } from "@/lib/weekdays";
 import { formatToman } from "@/lib/format";
 import { updateDoctorCatalogAction } from "@/app/actions/clinic";
@@ -12,7 +13,7 @@ import CatalogCheckboxGroup from "./CatalogCheckboxGroup";
 
 export default async function DoctorsPage() {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (!canManageClinic(session.role)) {
     redirect("/dashboard");
   }
 

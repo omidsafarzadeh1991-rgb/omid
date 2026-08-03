@@ -1,13 +1,17 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/dal";
+import { canManageClinic } from "@/lib/roles";
 import {
   getBotIntegrations,
   getWebhookSecret,
   getAssistantInstructions,
 } from "@/lib/settings";
+import { getSmsSettings } from "@/lib/sms";
 import { setBotEnabledAction } from "@/app/actions/settings";
 import BotTokenForm from "./BotTokenForm";
 import AssistantInstructionsForm from "./AssistantInstructionsForm";
+import SmsCredentialsForm from "./SmsCredentialsForm";
+import SmsPreferencesForm from "./SmsPreferencesForm";
 
 async function TelegramWebhookInfo({ clinicId }: { clinicId: string }) {
   const secret = await getWebhookSecret(clinicId, "TELEGRAM");
@@ -53,22 +57,26 @@ const PLATFORMS = [
 
 export default async function SettingsPage() {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (!canManageClinic(session.role)) {
     redirect("/dashboard");
   }
+  const isOwner = session.role === "OWNER";
 
-  const integrations = await getBotIntegrations(session.clinicId);
-  const byPlatform = new Map(integrations.map((i) => [i.platform, i]));
-  const assistantInstructions = await getAssistantInstructions(session.clinicId);
+  const [integrationsList, assistantInstructions, smsSettings] = await Promise.all([
+    getBotIntegrations(session.clinicId),
+    getAssistantInstructions(session.clinicId),
+    getSmsSettings(session.clinicId),
+  ]);
+  const byPlatform = new Map(integrationsList.map((i) => [i.platform, i]));
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">تنظیمات بات‌ها</h1>
+        <h1 className="text-xl font-bold text-slate-900">تنظیمات بات‌ها و پیامک</h1>
         <p className="mt-1 text-sm text-slate-500">
-          توکن هر پیام‌رسان را اینجا وارد کنید تا بات نوبت‌دهی آن کلینیک روشن
-          شود. توکن‌ها رمزنگاری‌شده ذخیره می‌شوند و بعد از ذخیره دوباره نمایش
-          داده نمی‌شوند.
+          {isOwner
+            ? "توکن هر پیام‌رسان و کلید سرویس پیامک را اینجا وارد کنید. این مقادیر رمزنگاری‌شده ذخیره می‌شوند و بعد از ذخیره دوباره نمایش داده نمی‌شوند."
+            : "می‌توانید بات را فعال/غیرفعال کنید و متن پیام‌ها را ویرایش کنید؛ برای وارد‌کردن یا تغییر توکن/کلید سرویس، از مالک سامانه بخواهید."}
         </p>
       </div>
 
@@ -126,9 +134,19 @@ export default async function SettingsPage() {
                 )}
               </div>
             </div>
-            <BotTokenForm platform={platform.value} hasToken={!!integration} />
-            {platform.value === "TELEGRAM" && integration && (
-              <TelegramWebhookInfo clinicId={session.clinicId} />
+            {isOwner ? (
+              <>
+                <BotTokenForm platform={platform.value} hasToken={!!integration} />
+                {platform.value === "TELEGRAM" && integration && (
+                  <TelegramWebhookInfo clinicId={session.clinicId} />
+                )}
+              </>
+            ) : (
+              !integration && (
+                <p className="text-xs text-slate-400">
+                  هنوز توکنی برای این پیام‌رسان تنظیم نشده؛ از مالک سامانه بخواهید وارد کند.
+                </p>
+              )
             )}
           </section>
         );
@@ -137,6 +155,37 @@ export default async function SettingsPage() {
       <section className="card animate-in p-6 text-sm text-slate-500">
         واتس‌اپ و اینستاگرام در فازهای بعدی و بعد از هماهنگی دربارهٔ هزینه و
         تأییدیهٔ Meta Business اضافه می‌شوند.
+      </section>
+
+      <section className="card animate-in p-6">
+        <h2 className="mb-1 text-lg font-semibold text-slate-900">پیامک یادآوری نوبت</h2>
+        <p className="mb-4 mt-1 text-xs text-slate-500">
+          پیامک واقعاً هزینه دارد و از حساب پیامکی خودتان کسر می‌شود. تا وقتی
+          کلید سرویس پیامک تنظیم نشده، هیچ پیامکی ارسال نمی‌شود.
+        </p>
+        {isOwner && (
+          <div className="mb-6 border-b border-slate-100 pb-6">
+            <SmsCredentialsForm
+              hasCredentials={!!smsSettings?.encryptedApiKey}
+              defaultSenderNumber={smsSettings?.senderNumber ?? ""}
+            />
+          </div>
+        )}
+        {!isOwner && !smsSettings?.encryptedApiKey && (
+          <p className="mb-4 text-xs text-slate-400">
+            هنوز کلید سرویس پیامک تنظیم نشده؛ از مالک سامانه بخواهید وارد کند.
+          </p>
+        )}
+        <SmsPreferencesForm
+          defaults={{
+            confirmationEnabled: smsSettings?.confirmationEnabled ?? true,
+            reminder24hEnabled: smsSettings?.reminder24hEnabled ?? true,
+            reminder2to4hEnabled: smsSettings?.reminder2to4hEnabled ?? true,
+            confirmationTemplate: smsSettings?.confirmationTemplate ?? "",
+            reminder24hTemplate: smsSettings?.reminder24hTemplate ?? "",
+            reminder2to4hTemplate: smsSettings?.reminder2to4hTemplate ?? "",
+          }}
+        />
       </section>
     </main>
   );

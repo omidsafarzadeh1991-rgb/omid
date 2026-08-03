@@ -33,7 +33,7 @@ export async function registerClinic(
           name: input.adminName,
           email: input.adminEmail.toLowerCase(),
           passwordHash,
-          role: "ADMIN",
+          role: "OWNER",
         },
       });
       return { clinic, staff };
@@ -95,7 +95,7 @@ export type VerifyLoginResult =
       ok: true;
       staffId: string;
       clinicId: string;
-      role: "ADMIN" | "RECEPTIONIST";
+      role: "OWNER" | "ADMIN" | "RECEPTIONIST";
     }
   | { ok: false };
 

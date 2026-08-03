@@ -12,9 +12,29 @@ datasource db {
   provider = "sqlite"
 }
 
+// OWNER: exactly one per install, created only during /setup, sees secrets
+// (bot tokens, webhook secret, SMS API key), security log, backups.
+// ADMIN: manages doctors/staff/catalog/AI instructions, can enable/disable
+// bots and reminders, but never sees a decrypted secret.
+// RECEPTIONIST: booking only, no access to settings.
 enum StaffRole {
+  OWNER
   ADMIN
   RECEPTIONIST
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  BOT_TOKEN_UPDATED
+  SMS_SETTINGS_UPDATED
+  BACKUP_CREATED
+}
+
+enum SmsReminderType {
+  CONFIRMATION
+  REMINDER_24H
+  REMINDER_2_4H
 }
 
 enum AppointmentSource {
@@ -70,6 +90,56 @@ model Clinic {
   conversationNotes ConversationNote[]
   services    Service[]
   specialties Specialty[]
+  smsSettings SmsSettings?
+  securityLogs SecurityLog[]
+}
+
+// Append-only security/audit trail, visible only to OWNER.
+model SecurityLog {
+  id           String            @id @default(cuid())
+  clinicId     String
+  clinic       Clinic            @relation(fields: [clinicId], references: [id])
+  event        SecurityEventType
+  detail       String?
+  actorStaffId String?
+  actorStaff   StaffUser?        @relation(fields: [actorStaffId], references: [id])
+  createdAt    DateTime          @default(now())
+
+  @@index([clinicId, createdAt])
+}
+
+// One row per clinic (there is only ever one clinic per install). The SMS
+// API key is encrypted the same way bot tokens are; only OWNER can set it.
+// ADMIN can toggle which reminder types are on and edit their text.
+model SmsSettings {
+  id                    String   @id @default(cuid())
+  clinicId              String   @unique
+  clinic                Clinic   @relation(fields: [clinicId], references: [id])
+  provider              String   @default("KAVENEGAR")
+  encryptedApiKey       String?
+  senderNumber          String?
+  confirmationEnabled   Boolean  @default(true)
+  reminder24hEnabled    Boolean  @default(true)
+  reminder2to4hEnabled  Boolean  @default(true)
+  confirmationTemplate  String?
+  reminder24hTemplate   String?
+  reminder2to4hTemplate String?
+  updatedAt             DateTime @updatedAt
+  createdAt             DateTime @default(now())
+}
+
+// Append-only send-attempt log per appointment, so a reminder is never sent
+// twice even if the periodic sweep (lib/reminders.ts) overlaps or restarts.
+model AppointmentReminder {
+  id            String          @id @default(cuid())
+  appointmentId String
+  appointment   Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  type          SmsReminderType
+  sentAt        DateTime        @default(now())
+  success       Boolean
+  errorMessage  String?
+
+  @@unique([appointmentId, type])
 }
 
 // Per-clinic messenger bot connection. The token is encrypted at rest
@@ -157,6 +227,7 @@ model StaffUser {
 
   assignedConversations BotConversation[]
   conversationNotes     ConversationNote[]
+  securityLogs          SecurityLog[]
 }
 
 model Doctor {
@@ -234,6 +305,8 @@ model Appointment {
   // attempts for the same doctor+time race to insert, and only one wins.
   // Cancelling an appointment deletes this row (see lib/booking.ts) and
   // is recorded in AppointmentLog for history.
+  reminders AppointmentReminder[]
+
   @@unique([doctorId, startTime])
   @@index([clinicId, startTime])
 }

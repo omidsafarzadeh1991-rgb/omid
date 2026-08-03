@@ -1,8 +1,15 @@
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { logoutAction } from "@/app/actions/auth";
+import { canManageClinic } from "@/lib/roles";
 import { countNeedsFollowUp, sweepStaleConversations } from "@/lib/conversations";
 import SidebarNav from "./SidebarNav";
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: "مالک سامانه",
+  ADMIN: "مدیر کلینیک",
+  RECEPTIONIST: "منشی",
+};
 
 export default async function DashboardLayout({
   children,
@@ -30,13 +37,17 @@ export default async function DashboardLayout({
           <div className="min-w-0">
             <p className="truncate font-bold text-white">{clinic.name}</p>
             <p className="text-xs text-teal-300/80">
-              {session.role === "ADMIN" ? "مدیر کلینیک" : "منشی"}
+              {ROLE_LABELS[session.role] ?? session.role}
             </p>
           </div>
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col">
-          <SidebarNav isAdmin={session.role === "ADMIN"} needsFollowUpCount={needsFollowUpCount} />
+          <SidebarNav
+            isAdmin={canManageClinic(session.role)}
+            isOwner={session.role === "OWNER"}
+            needsFollowUpCount={needsFollowUpCount}
+          />
         </div>
 
         <form action={logoutAction} className="relative z-10">

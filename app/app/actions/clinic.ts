@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { createStaffMember } from "@/lib/auth";
 import { WEEK_DAYS } from "@/lib/weekdays";
 import { toEnglishDigits } from "@/lib/format";
+import { canManageClinic } from "@/lib/roles";
 
 const CreateDoctorSchema = z.object({
   name: z.string().trim().min(2, "نام پزشک باید حداقل ۲ حرف باشد."),
@@ -27,7 +28,7 @@ export async function createDoctorAction(
   formData: FormData
 ): Promise<CreateDoctorFormState> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (!canManageClinic(session.role)) {
     return { message: "فقط مدیر کلینیک می‌تواند پزشک اضافه کند." };
   }
 
@@ -101,7 +102,7 @@ export async function updateDoctorCatalogAction(
   specialtyIds: string[]
 ) {
   const session = await requireSession();
-  if (session.role !== "ADMIN") return;
+  if (!canManageClinic(session.role)) return;
 
   const doctor = await prisma.doctor.findFirst({
     where: { id: doctorId, clinicId: session.clinicId },
@@ -142,7 +143,7 @@ export async function createServiceAction(
   formData: FormData
 ): Promise<CreateServiceFormState> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (!canManageClinic(session.role)) {
     return { message: "فقط مدیر کلینیک می‌تواند خدمت اضافه کند." };
   }
 
@@ -179,7 +180,7 @@ export async function createSpecialtyAction(
   formData: FormData
 ): Promise<CreateSpecialtyFormState> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (!canManageClinic(session.role)) {
     return { message: "فقط مدیر کلینیک می‌تواند تخصص اضافه کند." };
   }
 
@@ -219,7 +220,7 @@ export async function createStaffAction(
   formData: FormData
 ): Promise<CreateStaffFormState> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (!canManageClinic(session.role)) {
     return { message: "فقط مدیر کلینیک می‌تواند کارمند اضافه کند." };
   }
 

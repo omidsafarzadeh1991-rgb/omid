@@ -16,7 +16,7 @@ function getSecretKey() {
 export type SessionPayload = {
   staffId: string;
   clinicId: string;
-  role: "ADMIN" | "RECEPTIONIST";
+  role: "OWNER" | "ADMIN" | "RECEPTIONIST";
 };
 
 export async function createSession(payload: SessionPayload) {

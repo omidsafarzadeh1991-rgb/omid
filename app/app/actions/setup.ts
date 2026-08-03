@@ -52,7 +52,7 @@ export async function setupAction(
   await createSession({
     staffId: result.staffId,
     clinicId: result.clinicId,
-    role: "ADMIN",
+    role: "OWNER",
   });
 
   redirect("/dashboard");

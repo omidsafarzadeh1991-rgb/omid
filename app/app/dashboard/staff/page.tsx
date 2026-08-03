@@ -1,16 +1,18 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
+import { canManageClinic } from "@/lib/roles";
 import AddStaffForm from "./AddStaffForm";
 
 const ROLE_LABELS: Record<string, string> = {
+  OWNER: "مالک سامانه",
   ADMIN: "مدیر کلینیک",
   RECEPTIONIST: "منشی",
 };
 
 export default async function StaffPage() {
   const session = await requireSession();
-  if (session.role !== "ADMIN") {
+  if (!canManageClinic(session.role)) {
     redirect("/dashboard");
   }
 
