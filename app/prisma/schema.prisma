@@ -400,5 +400,10 @@ model AppointmentLog {
   actorStaffId  String?
   createdAt     DateTime          @default(now())
 
+  // Covers the dashboard's per-clinic booked-count/channel-share queries
+  // (filtered by clinicId+action, sometimes +createdAt) so they stay fast
+  // as this append-only table grows into the hundreds of thousands of rows
+  // over years of daily use, instead of scanning every row for the clinic.
   @@index([clinicId, startTime])
+  @@index([clinicId, action, createdAt])
 }

@@ -6,8 +6,8 @@ import type {
   ConversationStatus,
 } from "@/generated/prisma/client";
 
-export const FOLLOW_UP_THRESHOLD_MINUTES = 30;
-export const INCOMPLETE_THRESHOLD_MINUTES = 120;
+const FOLLOW_UP_THRESHOLD_MINUTES = 30;
+const INCOMPLETE_THRESHOLD_MINUTES = 120;
 
 // Statuses where the ball is in the clinic's court - if one of these sits
 // too long without staff action, it needs follow-up.

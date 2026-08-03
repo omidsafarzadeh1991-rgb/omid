@@ -27,7 +27,7 @@ function getScheduleForDay(
 }
 
 /** Generates every slot within a day's schedule window. */
-export function generateDaySlotTimes(
+function generateDaySlotTimes(
   schedule: Pick<DoctorSchedule, "startMin" | "endMin">,
   slotMinutes: number,
   day: Date
