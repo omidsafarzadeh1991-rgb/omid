@@ -17,14 +17,14 @@ async function TelegramWebhookInfo({ clinicId }: { clinicId: string }) {
   const secret = await getWebhookSecret(clinicId, "TELEGRAM");
   if (!secret) return null;
 
-  const webhookUrl = `https://<آدرس-ngrok-شما>/api/telegram/webhook/${clinicId}`;
+  const webhookUrl = `https://<آدرس-تونل-شما>/api/telegram/webhook/${clinicId}`;
   const curlCommand = `curl "https://api.telegram.org/bot<توکن-ربات-شما>/setWebhook" -d "url=${webhookUrl}" -d "secret_token=${secret}"`;
 
   return (
     <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm">
       <p className="mb-2 text-slate-700">
-        برای فعال‌شدن بات روی تلگرام، یک‌بار (و بعد از هر بار که آدرس ngrok
-        عوض شد) این دستور را با آدرس واقعی ngrok و توکن ربات خودتان جایگزین
+        برای فعال‌شدن بات روی تلگرام، یک‌بار (و بعد از هر بار که آدرس تونل
+        عوض شد) این دستور را با آدرس واقعی تونل و توکن ربات خودتان جایگزین
         کنید و در Command Prompt اجرا کنید:
       </p>
       <pre
@@ -35,8 +35,8 @@ async function TelegramWebhookInfo({ clinicId }: { clinicId: string }) {
       </pre>
       <p className="mt-2 text-xs text-slate-500">
         این کار فقط با اتصال به اینترنت ممکن است (تلگرام باید بتواند به سیستم
-        شما پیام برساند)؛ راهنمای کامل نصب و اجرای ngrok در فایل README پروژه
-        آمده است.
+        شما پیام برساند)؛ راهنمای کامل نصب و اجرای Cloudflare Tunnel در فایل
+        README پروژه آمده است.
       </p>
     </div>
   );
