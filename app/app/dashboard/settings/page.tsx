@@ -42,6 +42,36 @@ async function TelegramWebhookInfo({ clinicId }: { clinicId: string }) {
   );
 }
 
+async function BaleWebhookInfo({ clinicId }: { clinicId: string }) {
+  const secret = await getWebhookSecret(clinicId, "BALE");
+  if (!secret) return null;
+
+  const webhookUrl = `https://<آدرس-تونل-شما>/api/bale/webhook/${clinicId}/${secret}`;
+  const curlCommand = `curl "https://tapi.bale.ai/bot<توکن-ربات-بله>/setWebhook?url=${webhookUrl}"`;
+
+  return (
+    <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm">
+      <p className="mb-2 text-slate-700">
+        برای فعال‌شدن بات روی بله، یک‌بار (و بعد از هر بار که آدرس تونل عوض
+        شد) این دستور را با آدرس واقعی تونل و توکن ربات بله خودتان جایگزین
+        کنید و در Command Prompt اجرا کنید:
+      </p>
+      <pre
+        dir="ltr"
+        className="overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100"
+      >
+        {curlCommand}
+      </pre>
+      <p className="mt-2 text-xs text-slate-500">
+        این آدرس شامل یک رمز مخفی مخصوص همین کلینیک است؛ آن را جایی غیر از
+        همین دستور به اشتراک نگذارید. این کار فقط با اتصال به اینترنت ممکن
+        است؛ راهنمای کامل نصب و اجرای Cloudflare Tunnel در فایل README پروژه
+        آمده است.
+      </p>
+    </div>
+  );
+}
+
 const PLATFORMS = [
   {
     value: "TELEGRAM" as const,
@@ -139,6 +169,9 @@ export default async function SettingsPage() {
                 <BotTokenForm platform={platform.value} hasToken={!!integration} />
                 {platform.value === "TELEGRAM" && integration && (
                   <TelegramWebhookInfo clinicId={session.clinicId} />
+                )}
+                {platform.value === "BALE" && integration && (
+                  <BaleWebhookInfo clinicId={session.clinicId} />
                 )}
               </>
             ) : (

@@ -152,6 +152,7 @@ async function fetchDoctorsSnapshot(clinicId: string) {
 
 async function executeTool(
   clinicId: string,
+  platform: BotPlatform,
   name: string,
   input: Record<string, unknown>
 ): Promise<string> {
@@ -206,7 +207,7 @@ async function executeTool(
       patientName,
       patientPhone,
       serviceName,
-      source: "TELEGRAM",
+      source: platform,
     });
 
     if (result.ok) {
@@ -270,8 +271,14 @@ async function executeTool(
   return JSON.stringify({ error: "ابزار ناشناخته." });
 }
 
+const PLATFORM_LABELS: Record<BotPlatform, string> = {
+  TELEGRAM: "تلگرام",
+  BALE: "بله",
+};
+
 function buildSystemPrompt(
   clinicName: string,
+  platform: BotPlatform,
   adminInstructions: string,
   doctorsSnapshotJson: string,
   clinicInfoText: string
@@ -286,7 +293,7 @@ function buildSystemPrompt(
   const isoToday = now.toISOString().slice(0, 10);
 
   const fixedRules = [
-    `تو منشی هوش مصنوعی «${clinicName}» هستی و با بیماران در تلگرام گفتگو می‌کنی.`,
+    `تو منشی هوش مصنوعی «${clinicName}» هستی و با بیماران در ${PLATFORM_LABELS[platform]} گفتگو می‌کنی.`,
     `امروز ${todayLabel} (${isoToday}) است؛ تاریخ‌های نسبی مثل «فردا» یا «چهارشنبه» را بر این اساس به فرمت YYYY-MM-DD تبدیل کن.`,
     "اول نیت پیام بیمار را تشخیص بده - رزرو نوبت جدید، سوال دربارهٔ پزشکان/تخصص‌ها/خدمات/قیمت‌ها/ساعات کاری، لغو نوبت، یا پیگیری نوبت خودش - و مستقیم مسیر همان نیت را دنبال کن؛ در ابتدای مکالمه یک فرم یا سوالات ثابت (مثل نام و شماره) نپرس.",
     "فقط دربارهٔ نوبت‌دهی، پزشکان، تخصص‌ها، خدمات، قیمت‌ها و ساعات کاری این کلینیک صحبت کن. هرگز مشاورهٔ پزشکی یا تشخیص نده؛ اگر سوال پزشکی پرسیدند مودبانه بگو باید مستقیم با مطب تماس بگیرند.",
@@ -385,6 +392,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
     const clinicInfo = await getClinicInfo(input.clinicId);
     const system = buildSystemPrompt(
       input.clinicName,
+      input.platform,
       input.assistantInstructions ?? "",
       JSON.stringify(doctorsSnapshot),
       formatClinicInfoForPrompt(clinicInfo)
@@ -433,7 +441,12 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
           capturedPhone = toolInput.patientPhone.trim();
         }
 
-        const result = await executeTool(input.clinicId, toolCall.function.name, toolInput);
+        const result = await executeTool(
+          input.clinicId,
+          input.platform,
+          toolCall.function.name,
+          toolInput
+        );
         history.push({ role: "tool", tool_call_id: toolCall.id, content: result });
 
         if (toolCall.function.name === "book_appointment") {

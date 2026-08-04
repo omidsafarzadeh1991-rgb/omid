@@ -94,6 +94,40 @@ describe("runAssistantTurn", () => {
     expect(appointment?.patientName).toBe("زهرا احمدی");
   });
 
+  it("tags a booking made through the Bale platform with source BALE, not Telegram", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+
+    mockCreate.mockImplementationOnce(async () =>
+      toolCallResponse("book_appointment", {
+        doctorId: doctor.id,
+        date: isoDate(startTime),
+        time: "09:00",
+        patientName: "رضا کریمی",
+        patientPhone: "09129876543",
+      })
+    );
+    mockCreate.mockImplementationOnce(async () =>
+      endTurnResponse("نوبت شما برای شنبه ساعت ۹ ثبت شد.")
+    );
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "BALE",
+      externalChatId: "222",
+      userText: "سلام، می‌خوام نوبت بگیرم",
+    });
+
+    const appointment = await prisma.appointment.findFirst({
+      where: { doctorId: doctor.id, startTime },
+    });
+    expect(appointment?.source).toBe("BALE");
+
+    const call = mockCreate.mock.calls[0][0] as { messages: { content: string }[] };
+    expect(call.messages[0].content).toContain("بله");
+  });
+
   it("persists conversation history across separate webhook calls for the same chat", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
     void doctor;
