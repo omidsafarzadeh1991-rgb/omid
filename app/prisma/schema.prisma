@@ -107,6 +107,7 @@ model Clinic {
   securityLogs SecurityLog[]
   faqEntries  FaqEntry[]
   clinicInfo  ClinicInfo?
+  waitlistEntries Waitlist[]
 }
 
 // Append-only security/audit trail, visible only to OWNER.
@@ -317,6 +318,7 @@ model Doctor {
   services     Service[]
   specialties  Specialty[]
   schedules    DoctorSchedule[]
+  waitlistEntries Waitlist[]
 }
 
 // Clinic-wide catalog of specialties (e.g. "دندانپزشکی عمومی", "ارتودنسی").
@@ -355,6 +357,10 @@ model Service {
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
   name      String
   price     Int? // تومان؛ خالی یعنی قیمت مشخص نشده
+  // غیرفعال یعنی دیگر برای پزشک جدید قابل انتخاب نیست، اما چون
+  // Appointment.serviceName فقط یک متن ذخیره‌شده است (نه لینک به این
+  // ردیف)، غیرفعال یا حتی حذف این رکورد هیچ نوبت قبلی را دستکاری نمی‌کند.
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
   doctors Doctor[]
@@ -373,6 +379,13 @@ model Appointment {
   patientPhone String
   serviceName  String?
   source       AppointmentSource @default(MANUAL)
+  // Shared id across every occurrence created together by the "weekly
+  // repeat" option (see lib/booking.ts createRecurringAppointments). Null
+  // for a normal one-off booking. Purely a grouping tag - each occurrence
+  // still goes through the same atomic bookAppointment() call and is bound
+  // by the same (doctorId, startTime) unique constraint, so recurring
+  // bookings never bypass the double-booking guard.
+  recurringGroupId String?
   createdAt    DateTime          @default(now())
 
   // A row here means the slot is actively booked. The DB-level unique
@@ -384,6 +397,7 @@ model Appointment {
 
   @@unique([doctorId, startTime])
   @@index([clinicId, startTime])
+  @@index([clinicId, recurringGroupId])
 }
 
 // Append-only audit trail. Rows are never deleted or edited, so clinics
@@ -406,4 +420,24 @@ model AppointmentLog {
   // over years of daily use, instead of scanning every row for the clinic.
   @@index([clinicId, startTime])
   @@index([clinicId, action, createdAt])
+}
+
+// A patient waiting for a day that has no free slot right now. Purely a
+// staff-visible list (no automatic SMS - that costs money per message, see
+// CLAUDE.md); when a slot opens up staff notice it here and book manually.
+// Deleting the row (converted to a real booking, or the patient no longer
+// wants it) is the only lifecycle - no separate status field needed.
+model Waitlist {
+  id           String   @id @default(cuid())
+  clinicId     String
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
+  doctorId     String
+  doctor       Doctor   @relation(fields: [doctorId], references: [id])
+  day          DateTime
+  patientName  String
+  patientPhone String
+  serviceName  String?
+  createdAt    DateTime @default(now())
+
+  @@index([clinicId, doctorId, day])
 }

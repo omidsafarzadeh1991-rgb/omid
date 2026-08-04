@@ -3,9 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/dal";
-import { bookAppointment, buildMonthGrid, cancelAppointment, getSlotsForDay } from "@/lib/booking";
+import {
+  bookAppointment,
+  bookRecurringWeeklyAppointments,
+  buildMonthGrid,
+  cancelAppointment,
+  cancelRecurringSeries,
+  getSlotsForDay,
+  MAX_RECURRING_WEEKS,
+  type BookAppointmentResult,
+} from "@/lib/booking";
 import { formatToman } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import { removeFromWaitlist } from "@/lib/waitlist";
 
 function parseMonthParam(value: string | undefined): Date {
   if (value) {
@@ -55,10 +65,12 @@ export async function getQuickBookCalendarAction(
 
   return {
     doctorName: doctor.name,
-    services: doctor.services.map((s) => ({
-      name: s.name,
-      price: s.price != null ? formatToman(s.price) : null,
-    })),
+    services: doctor.services
+      .filter((s) => s.active)
+      .map((s) => ({
+        name: s.name,
+        price: s.price != null ? formatToman(s.price) : null,
+      })),
     monthParam: toMonthParam(monthDate),
     prevMonthParam: toMonthParam(new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1)),
     nextMonthParam: toMonthParam(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1)),
@@ -97,6 +109,8 @@ const CreateAppointmentSchema = z.object({
     .trim()
     .regex(/^0\d{10}$/, "شمارهٔ تماس باید به شکل ۰۹xxxxxxxxx باشد."),
   serviceName: z.string().trim().optional(),
+  repeatWeeks: z.coerce.number().int().min(1).max(MAX_RECURRING_WEEKS).optional(),
+  waitlistId: z.string().trim().optional(),
 });
 
 export type CreateAppointmentFormState =
@@ -120,6 +134,8 @@ export async function createManualAppointmentAction(
     patientName: formData.get("patientName"),
     patientPhone: formData.get("patientPhone"),
     serviceName: formData.get("serviceName") || undefined,
+    repeatWeeks: formData.get("repeatWeeks") || undefined,
+    waitlistId: formData.get("waitlistId") || undefined,
   });
 
   if (!validated.success) {
@@ -133,28 +149,77 @@ export async function createManualAppointmentAction(
     return { message: "پزشک پیدا نشد." };
   }
 
-  const result = await bookAppointment({
+  const bookingErrorMessages: Record<
+    Extract<BookAppointmentResult, { ok: false }>["reason"],
+    string
+  > = {
+    SLOT_TAKEN: "این ساعت همین الان توسط یک نفر دیگر رزرو شد. لطفاً ساعت دیگری را انتخاب کنید.",
+    OUTSIDE_WORKING_HOURS: "این ساعت خارج از برنامهٔ کاری پزشک است.",
+    PAST_TIME: "امکان ثبت نوبت برای زمان گذشته وجود ندارد.",
+  };
+
+  const weeks = validated.data.repeatWeeks ?? 1;
+  const baseInput = {
     clinicId: session.clinicId,
     doctorId: doctor.id,
     startTime: new Date(validated.data.startTime),
     patientName: validated.data.patientName,
     patientPhone: validated.data.patientPhone,
     serviceName: validated.data.serviceName || undefined,
-    source: "MANUAL",
+    source: "MANUAL" as const,
     actorStaffId: session.staffId,
-  });
+  };
+
+  let firstOk = false;
+
+  if (weeks > 1) {
+    const { occurrences } = await bookRecurringWeeklyAppointments(baseInput, weeks);
+    const succeeded = occurrences.filter((o) => o.result.ok);
+    const failed = occurrences.filter((o) => !o.result.ok);
+    firstOk = occurrences[0]?.result.ok === true;
+
+    if (succeeded.length === 0) {
+      return { message: "هیچ‌کدام از نوبت‌های این سری ثبت نشد؛ همهٔ هفته‌ها قبلاً پر بوده‌اند." };
+    }
+
+    revalidatePath(`/book/${doctor.id}`);
+    revalidatePath("/dashboard");
+
+    if (failed.length > 0) {
+      const failedDates = failed
+        .map((o) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "short" }).format(o.startTime))
+        .join("، ");
+      if (firstOk && validated.data.waitlistId) {
+        await removeFromWaitlist(session.clinicId, validated.data.waitlistId);
+      }
+      return {
+        message: `${succeeded.length} از ${weeks} نوبت این سری با موفقیت ثبت شد. این تاریخ‌ها قبلاً پر بودند و ثبت نشدند: ${failedDates}`,
+      };
+    }
+
+    if (validated.data.waitlistId) {
+      await removeFromWaitlist(session.clinicId, validated.data.waitlistId);
+    }
+    return undefined;
+  }
+
+  const result = await bookAppointment(baseInput);
 
   if (!result.ok) {
-    const messages: Record<typeof result.reason, string> = {
-      SLOT_TAKEN:
-        "این ساعت همین الان توسط یک نفر دیگر رزرو شد. لطفاً ساعت دیگری را انتخاب کنید.",
-      OUTSIDE_WORKING_HOURS: "این ساعت خارج از برنامهٔ کاری پزشک است.",
-      PAST_TIME: "امکان ثبت نوبت برای زمان گذشته وجود ندارد.",
-    };
-    return { message: messages[result.reason] };
+    return { message: bookingErrorMessages[result.reason] };
+  }
+
+  if (validated.data.waitlistId) {
+    await removeFromWaitlist(session.clinicId, validated.data.waitlistId);
   }
 
   revalidatePath(`/book/${doctor.id}`);
+  revalidatePath("/dashboard");
+}
+
+export async function cancelRecurringSeriesAction(recurringGroupId: string) {
+  const session = await requireSession();
+  await cancelRecurringSeries(session.clinicId, recurringGroupId, session.staffId);
   revalidatePath("/dashboard");
 }
 

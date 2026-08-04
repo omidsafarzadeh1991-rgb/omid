@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { bookAppointment, buildMonthGrid, cancelAppointment, getSlotsForDay } from "@/lib/booking";
+import {
+  bookAppointment,
+  bookRecurringWeeklyAppointments,
+  buildMonthGrid,
+  cancelAppointment,
+  cancelRecurringSeries,
+  getSlotsForDay,
+} from "@/lib/booking";
 import { prisma } from "@/lib/prisma";
 import { createTestClinicWithDoctor } from "./helpers";
 
@@ -315,6 +322,96 @@ describe("bookAppointment", () => {
       orderBy: { createdAt: "asc" },
     });
     expect(logs.map((l) => l.action)).toEqual(["BOOKED", "CANCELLED", "BOOKED"]);
+  });
+});
+
+describe("bookRecurringWeeklyAppointments", () => {
+  it("books the same weekday/time for every requested week under one shared group id", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+
+    const { recurringGroupId, occurrences } = await bookRecurringWeeklyAppointments(
+      {
+        clinicId: clinic.id,
+        doctorId: doctor.id,
+        startTime,
+        patientName: "بیمار تکرارشونده",
+        patientPhone: "09120000030",
+        source: "MANUAL",
+      },
+      3
+    );
+
+    expect(occurrences).toHaveLength(3);
+    expect(occurrences.every((o) => o.result.ok)).toBe(true);
+    expect(occurrences.map((o) => o.startTime.getDay())).toEqual([
+      startTime.getDay(),
+      startTime.getDay(),
+      startTime.getDay(),
+    ]);
+
+    const appointmentsInGroup = await prisma.appointment.findMany({
+      where: { clinicId: clinic.id, recurringGroupId },
+    });
+    expect(appointmentsInGroup).toHaveLength(3);
+  });
+
+  it("books the weeks that are free and reports the ones that are already taken", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+    const weekTwo = new Date(startTime.getTime() + 7 * 24 * 60 * 60_000);
+
+    const conflicting = await bookAppointment({
+      clinicId: clinic.id,
+      doctorId: doctor.id,
+      startTime: weekTwo,
+      patientName: "یک بیمار دیگر",
+      patientPhone: "09120000031",
+      source: "MANUAL",
+    });
+    expect(conflicting.ok).toBe(true);
+
+    const { occurrences } = await bookRecurringWeeklyAppointments(
+      {
+        clinicId: clinic.id,
+        doctorId: doctor.id,
+        startTime,
+        patientName: "بیمار تکرارشونده",
+        patientPhone: "09120000032",
+        source: "MANUAL",
+      },
+      3
+    );
+
+    expect(occurrences.map((o) => o.result.ok)).toEqual([true, false, true]);
+    if (!occurrences[1].result.ok) {
+      expect(occurrences[1].result.reason).toBe("SLOT_TAKEN");
+    }
+  });
+
+  it("cancels every active appointment in a recurring series", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+
+    const { recurringGroupId } = await bookRecurringWeeklyAppointments(
+      {
+        clinicId: clinic.id,
+        doctorId: doctor.id,
+        startTime,
+        patientName: "بیمار تکرارشونده",
+        patientPhone: "09120000033",
+        source: "MANUAL",
+      },
+      3
+    );
+
+    const cancelledCount = await cancelRecurringSeries(clinic.id, recurringGroupId);
+    expect(cancelledCount).toBe(3);
+
+    const remaining = await prisma.appointment.count({
+      where: { clinicId: clinic.id, recurringGroupId },
+    });
+    expect(remaining).toBe(0);
   });
 });
 

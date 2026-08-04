@@ -189,6 +189,69 @@ export async function createServiceAction(
   revalidatePath("/dashboard/doctors");
 }
 
+const UpdateServiceSchema = z.object({
+  serviceId: z.string().min(1),
+  name: z.string().trim().min(1, "نام خدمت را وارد کنید."),
+  price: z.string().optional(),
+});
+
+export type UpdateServiceFormState = { message?: string } | undefined;
+
+export async function updateServiceAction(
+  _prevState: UpdateServiceFormState,
+  formData: FormData
+): Promise<UpdateServiceFormState> {
+  const session = await requireSession();
+  if (!canManageClinic(session.role)) {
+    return { message: "فقط مدیر کلینیک می‌تواند خدمت را ویرایش کند." };
+  }
+
+  const validated = UpdateServiceSchema.safeParse({
+    serviceId: formData.get("serviceId"),
+    name: formData.get("name"),
+    price: formData.get("price"),
+  });
+  if (!validated.success) {
+    return { message: validated.error.issues[0]?.message ?? "نام خدمت نامعتبر است." };
+  }
+
+  const service = await prisma.service.findFirst({
+    where: { id: validated.data.serviceId, clinicId: session.clinicId },
+  });
+  if (!service) return { message: "خدمت پیدا نشد." };
+
+  const priceDigits = toEnglishDigits(validated.data.price ?? "").replace(/[^\d]/g, "");
+  const price = priceDigits ? Number(priceDigits) : null;
+
+  try {
+    await prisma.service.update({
+      where: { id: service.id },
+      data: { name: validated.data.name, price },
+    });
+  } catch {
+    return { message: "خدمتی با این نام قبلاً در فهرست تعریف شده است." };
+  }
+
+  revalidatePath("/dashboard/doctors");
+}
+
+export async function toggleServiceActiveAction(serviceId: string) {
+  const session = await requireSession();
+  if (!canManageClinic(session.role)) return;
+
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, clinicId: session.clinicId },
+  });
+  if (!service) return;
+
+  await prisma.service.update({
+    where: { id: service.id },
+    data: { active: !service.active },
+  });
+
+  revalidatePath("/dashboard/doctors");
+}
+
 const CreateSpecialtySchema = z.object({
   name: z.string().trim().min(1, "نام تخصص را وارد کنید."),
 });

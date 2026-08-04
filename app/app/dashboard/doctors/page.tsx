@@ -10,6 +10,7 @@ import AddDoctorForm from "./AddDoctorForm";
 import AddSpecialtyForm from "./AddSpecialtyForm";
 import AddServiceForm from "./AddServiceForm";
 import CatalogCheckboxGroup from "./CatalogCheckboxGroup";
+import ServiceRow from "./ServiceRow";
 
 export default async function DoctorsPage() {
   const session = await requireSession();
@@ -68,19 +69,17 @@ export default async function DoctorsPage() {
             یک‌بار با قیمت تعریف کنید، بعد برای هر پزشک از همین فهرست تیک بزنید.
           </p>
           {services.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-1.5">
+            <ul className="mb-3 space-y-1.5">
               {services.map((s) => (
-                <span
+                <ServiceRow
                   key={s.id}
-                  className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
-                >
-                  {s.name}
-                  {s.price != null && (
-                    <span className="text-amber-700"> · {formatToman(s.price)}</span>
-                  )}
-                </span>
+                  id={s.id}
+                  name={s.name}
+                  price={s.price != null ? formatToman(s.price) : null}
+                  active={s.active}
+                />
               ))}
-            </div>
+            </ul>
           )}
           <AddServiceForm />
         </section>
@@ -169,7 +168,12 @@ export default async function DoctorsPage() {
                       <p className="mb-1.5 text-xs font-medium text-slate-600">خدمات</p>
                       <CatalogCheckboxGroup
                         name="serviceIds"
-                        items={services.map((s) => ({ id: s.id, label: s.name }))}
+                        items={services
+                          .filter((s) => s.active || doctor.services.some((ds) => ds.id === s.id))
+                          .map((s) => ({
+                            id: s.id,
+                            label: s.active ? s.name : `${s.name} (غیرفعال)`,
+                          }))}
                         defaultSelectedIds={doctor.services.map((s) => s.id)}
                         emptyMessage="هنوز خدمتی تعریف نشده."
                       />
@@ -185,7 +189,7 @@ export default async function DoctorsPage() {
         )}
         <AddDoctorForm
           specialties={specialties.map((s) => ({ id: s.id, name: s.name }))}
-          services={services.map((s) => ({ id: s.id, name: s.name }))}
+          services={services.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }))}
         />
       </section>
     </main>

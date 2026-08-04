@@ -5,6 +5,7 @@ import { buildMonthGrid, getSlotsForDay } from "@/lib/booking";
 import { formatToman } from "@/lib/format";
 import MonthCalendar from "./MonthCalendar";
 import BookingForm from "./BookingForm";
+import AddToWaitlistForm from "./AddToWaitlistForm";
 
 function parseMonthParam(value: string | undefined): Date {
   if (value) {
@@ -28,11 +29,23 @@ export default async function BookPage({
   searchParams,
 }: {
   params: Promise<{ doctorId: string }>;
-  searchParams: Promise<{ month?: string; date?: string }>;
+  searchParams: Promise<{
+    month?: string;
+    date?: string;
+    name?: string;
+    phone?: string;
+    waitlistId?: string;
+  }>;
 }) {
   const session = await requireSession();
   const { doctorId } = await params;
-  const { month: monthParam, date: dateParam } = await searchParams;
+  const {
+    month: monthParam,
+    date: dateParam,
+    name: prefillName,
+    phone: prefillPhone,
+    waitlistId,
+  } = await searchParams;
 
   const monthDate = parseMonthParam(monthParam);
   const { doctor, days } = await buildMonthGrid(session.clinicId, doctorId, monthDate).catch(() =>
@@ -73,15 +86,23 @@ export default async function BookPage({
           </h2>
           <BookingForm
             doctorId={doctor.id}
-            services={doctor.services.map((s) => ({
-              name: s.name,
-              price: s.price != null ? formatToman(s.price) : null,
-            }))}
+            services={doctor.services
+              .filter((s) => s.active)
+              .map((s) => ({
+                name: s.name,
+                price: s.price != null ? formatToman(s.price) : null,
+              }))}
             slots={slots.map((s) => ({
               startTime: s.startTime.toISOString(),
               isFree: s.isFree,
             }))}
+            prefillName={prefillName}
+            prefillPhone={prefillPhone}
+            waitlistId={waitlistId}
           />
+          <div className="mt-4">
+            <AddToWaitlistForm doctorId={doctor.id} day={dateParam ?? ""} />
+          </div>
         </div>
       )}
     </main>

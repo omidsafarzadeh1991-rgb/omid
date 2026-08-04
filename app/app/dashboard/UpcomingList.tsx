@@ -1,4 +1,4 @@
-import { cancelManualAppointmentAction } from "@/app/actions/booking";
+import { cancelManualAppointmentAction, cancelRecurringSeriesAction } from "@/app/actions/booking";
 import SourceBadge from "./SourceBadge";
 
 type UpcomingAppointment = {
@@ -8,6 +8,7 @@ type UpcomingAppointment = {
   serviceName: string | null;
   startTime: Date;
   source: string;
+  recurringGroupId: string | null;
   doctor: { name: string };
 };
 
@@ -76,18 +77,33 @@ export default function UpcomingList({ appointments }: { appointments: UpcomingA
                     <p className="text-sm text-slate-500">
                       {appt.doctor.name}
                       {appt.serviceName && <> · {appt.serviceName}</>}
+                      {appt.recurringGroupId && <> · بخشی از یک سری تکرارشونده</>}
                     </p>
                   </div>
-                  <form
-                    action={async () => {
-                      "use server";
-                      await cancelManualAppointmentAction(appt.id);
-                    }}
-                  >
-                    <button type="submit" className="btn-ghost">
-                      لغو
-                    </button>
-                  </form>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {appt.recurringGroupId && (
+                      <form
+                        action={async () => {
+                          "use server";
+                          await cancelRecurringSeriesAction(appt.recurringGroupId!);
+                        }}
+                      >
+                        <button type="submit" className="btn-ghost">
+                          لغو کل سری
+                        </button>
+                      </form>
+                    )}
+                    <form
+                      action={async () => {
+                        "use server";
+                        await cancelManualAppointmentAction(appt.id);
+                      }}
+                    >
+                      <button type="submit" className="btn-ghost">
+                        لغو
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </li>
             ))}

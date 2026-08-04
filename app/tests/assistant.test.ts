@@ -238,6 +238,50 @@ describe("runAssistantTurn", () => {
     ]);
   });
 
+  it("hides a deactivated service from list_doctors", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    await prisma.service.create({
+      data: {
+        clinicId: clinic.id,
+        name: "خدمت غیرفعال",
+        active: false,
+        doctors: { connect: { id: doctor.id } },
+      },
+    });
+    await prisma.service.create({
+      data: {
+        clinicId: clinic.id,
+        name: "خدمت فعال",
+        doctors: { connect: { id: doctor.id } },
+      },
+    });
+
+    mockCreate.mockImplementationOnce(async () => toolCallResponse("list_doctors", {}));
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("پزشکان را نشان دادم."));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "334",
+      userText: "چه خدماتی دارید؟",
+    });
+
+    const conversation = await prisma.botConversation.findUnique({
+      where: {
+        clinicId_platform_externalChatId: {
+          clinicId: clinic.id,
+          platform: "TELEGRAM",
+          externalChatId: "334",
+        },
+      },
+    });
+    const history = JSON.parse(conversation!.history);
+    const toolResultMessage = history.find((m: { role: string }) => m.role === "tool");
+    const doctors = JSON.parse(toolResultMessage.content as string);
+    expect(doctors[0].services.map((s: { name: string }) => s.name)).toEqual(["خدمت فعال"]);
+  });
+
   it("includes the admin's custom instructions in the system prompt but keeps hard rules in force", async () => {
     const { clinic, doctor } = await createTestClinicWithDoctor();
     void doctor;

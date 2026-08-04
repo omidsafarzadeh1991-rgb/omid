@@ -143,10 +143,12 @@ async function fetchDoctorsSnapshot(clinicId: string) {
     name: doctor.name,
     specialties: doctor.specialties.map((s) => s.name),
     workSchedule: formatSchedules(doctor.schedules) || "بدون برنامهٔ کاری تعریف‌شده",
-    services: doctor.services.map((service) => ({
-      name: service.name,
-      price: service.price != null ? formatToman(service.price) : "قیمت تعیین نشده",
-    })),
+    services: doctor.services
+      .filter((service) => service.active)
+      .map((service) => ({
+        name: service.name,
+        price: service.price != null ? formatToman(service.price) : "قیمت تعیین نشده",
+      })),
   }));
 }
 

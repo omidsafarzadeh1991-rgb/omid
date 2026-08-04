@@ -72,8 +72,31 @@ function KnowledgeIcon() {
   );
 }
 
+function WaitlistIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function AppointmentsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
+      <line x1="3.5" y1="9.5" x2="20.5" y2="9.5" />
+      <line x1="8" y1="2.5" x2="8" y2="6.5" />
+      <line x1="16" y1="2.5" x2="16" y2="6.5" />
+      <path d="M7.5 14.5l2 2 4-4" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { href: "/dashboard", label: "داشبورد", Icon: DashboardIcon, adminOnly: false, ownerOnly: false },
+  { href: "/dashboard/appointments", label: "نوبت‌ها", Icon: AppointmentsIcon, adminOnly: false, ownerOnly: false },
+  { href: "/dashboard/waitlist", label: "لیست انتظار", Icon: WaitlistIcon, adminOnly: false, ownerOnly: false },
   { href: "/dashboard/conversations", label: "مکالمات", Icon: ConversationsIcon, adminOnly: false, ownerOnly: false },
   { href: "/dashboard/doctors", label: "پزشکان", Icon: DoctorIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/knowledge", label: "مرکز دانش", Icon: KnowledgeIcon, adminOnly: true, ownerOnly: false },

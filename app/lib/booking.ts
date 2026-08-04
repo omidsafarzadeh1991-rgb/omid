@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { Prisma, type DoctorSchedule } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendBookingConfirmation } from "@/lib/reminders";
@@ -156,6 +157,7 @@ export type BookAppointmentInput = {
   serviceName?: string;
   source: AppointmentSource;
   actorStaffId?: string;
+  recurringGroupId?: string;
 };
 
 export type BookAppointmentResult =
@@ -209,6 +211,7 @@ export async function bookAppointment(
           patientPhone: input.patientPhone,
           serviceName: input.serviceName,
           source: input.source,
+          recurringGroupId: input.recurringGroupId,
         },
       });
 
@@ -242,6 +245,53 @@ export async function bookAppointment(
     }
     throw error;
   }
+}
+
+export type RecurringOccurrenceResult = {
+  startTime: Date;
+  result: BookAppointmentResult;
+};
+
+export const MAX_RECURRING_WEEKS = 8;
+
+/**
+ * Books the same weekly slot for several weeks in a row. Every occurrence
+ * still goes through the single bookAppointment() write path above, so each
+ * week races at the DB exactly like any other booking - a week that's
+ * already taken by someone else simply fails for that one week instead of
+ * blocking the rest of the series.
+ */
+export async function bookRecurringWeeklyAppointments(
+  input: Omit<BookAppointmentInput, "recurringGroupId">,
+  weeks: number
+): Promise<{ recurringGroupId: string; occurrences: RecurringOccurrenceResult[] }> {
+  const recurringGroupId = randomUUID();
+  const occurrences: RecurringOccurrenceResult[] = [];
+
+  for (let week = 0; week < weeks; week += 1) {
+    const startTime = new Date(input.startTime.getTime() + week * 7 * 24 * 60 * 60_000);
+    const result = await bookAppointment({ ...input, startTime, recurringGroupId });
+    occurrences.push({ startTime, result });
+  }
+
+  return { recurringGroupId, occurrences };
+}
+
+/** Cancels every still-active appointment in a recurring series (used by the "لغو کل سری" action). */
+export async function cancelRecurringSeries(
+  clinicId: string,
+  recurringGroupId: string,
+  actorStaffId?: string
+): Promise<number> {
+  const appointments = await prisma.appointment.findMany({
+    where: { clinicId, recurringGroupId },
+  });
+
+  for (const appointment of appointments) {
+    await cancelAppointment(clinicId, appointment.id, actorStaffId);
+  }
+
+  return appointments.length;
 }
 
 export async function cancelAppointment(

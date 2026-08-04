@@ -16,12 +16,19 @@ export default function BookingForm({
   doctorId,
   slots,
   services,
+  prefillName,
+  prefillPhone,
+  waitlistId,
 }: {
   doctorId: string;
   slots: SlotDTO[];
   services: ServiceDTO[];
+  prefillName?: string;
+  prefillPhone?: string;
+  waitlistId?: string;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [state, action, pending] = useActionState(
     createManualAppointmentAction,
     initialState
@@ -35,6 +42,7 @@ export default function BookingForm({
     }
     if (hasSubmittedRef.current && !state) {
       setSelected(null);
+      setRepeatEnabled(false);
       hasSubmittedRef.current = false;
     }
   }, [pending, state]);
@@ -43,6 +51,7 @@ export default function BookingForm({
     <form action={action} dir="rtl" className="space-y-5">
       <input type="hidden" name="doctorId" value={doctorId} />
       <input type="hidden" name="startTime" value={selected ?? ""} />
+      {waitlistId && <input type="hidden" name="waitlistId" value={waitlistId} />}
 
       <div>
         <p className="mb-2 text-sm font-medium text-slate-700">
@@ -109,6 +118,7 @@ export default function BookingForm({
             <input
               name="patientName"
               required
+              defaultValue={prefillName}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
             {state?.errors?.patientName && (
@@ -126,12 +136,32 @@ export default function BookingForm({
               required
               dir="ltr"
               placeholder="09xxxxxxxxx"
+              defaultValue={prefillPhone}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ltr:text-left focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
             {state?.errors?.patientPhone && (
               <p className="mt-1 text-xs text-red-600">
                 {state.errors.patientPhone[0]}
               </p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input type="checkbox" checked={repeatEnabled} onChange={(e) => setRepeatEnabled(e.target.checked)} />
+              تکرار هفتگی
+            </label>
+            {repeatEnabled && (
+              <select
+                name="repeatWeeks"
+                defaultValue="4"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                {Array.from({ length: 7 }, (_, i) => i + 2).map((n) => (
+                  <option key={n} value={n}>
+                    {n} هفته پشت سر هم (همین ساعت، همین روز هفته)
+                  </option>
+                ))}
+              </select>
             )}
           </div>
           <button type="submit" disabled={pending} className="btn btn-primary w-full">
