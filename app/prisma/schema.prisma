@@ -31,6 +31,14 @@ enum SecurityEventType {
   SMS_SETTINGS_UPDATED
   BACKUP_CREATED
   OWNER_PASSWORD_RECOVERED
+  OFFSITE_BACKUP_SETTINGS_UPDATED
+  OFFSITE_BACKUP_SUCCEEDED
+  OFFSITE_BACKUP_FAILED
+}
+
+enum BackupDestinationType {
+  S3
+  SFTP
 }
 
 enum SmsReminderType {
@@ -116,6 +124,7 @@ model Clinic {
   clinicInfo  ClinicInfo?
   waitlistEntries Waitlist[]
   messageLogs MessageLog[]
+  backupDestination BackupDestination?
 }
 
 // Append-only security/audit trail, visible only to OWNER.
@@ -150,6 +159,51 @@ model SmsSettings {
   reminder2to4hTemplate String?
   updatedAt             DateTime @updatedAt
   createdAt             DateTime @default(now())
+}
+
+// One row per clinic (there is only ever one clinic per install), only
+// OWNER can view/edit. Off by default - sending an encrypted backup to a
+// third-party cloud (S3-compatible) is a real exception to "your data never
+// leaves your computer", so it only ever happens if OWNER explicitly turns
+// it on. SFTP to the clinic's own server/NAS never leaves their own
+// infrastructure at all. All credentials here are encrypted the same way
+// bot tokens are (lib/crypto.ts) - never stored in plain text.
+model BackupDestination {
+  id      String                 @id @default(cuid())
+  clinicId String                @unique
+  clinic  Clinic                 @relation(fields: [clinicId], references: [id])
+  enabled Boolean                @default(false)
+  type    BackupDestinationType?
+
+  // S3-compatible (Wasabi, Backblaze B2, self-hosted MinIO, ...)
+  s3Endpoint           String?
+  s3Bucket             String?
+  s3Region             String?
+  encryptedS3AccessKey String?
+  encryptedS3SecretKey String?
+
+  // SFTP (the clinic's own server/NAS)
+  sftpHost              String?
+  sftpPort              Int?
+  sftpUsername          String?
+  encryptedSftpPassword String?
+  sftpRemotePath        String?
+
+  scheduleHour  Int @default(2) // 0-23, local time of day the daily job runs
+  retentionDays Int @default(30)
+
+  // The key that encrypts the backup FILE itself (AES-256-GCM) before it
+  // ever leaves this computer - separate from the credentials above, which
+  // only protect how we log in to the destination. Generated once, stored
+  // here encrypted with the same app-level master key as everything else.
+  encryptedFileKey String?
+
+  lastRunAt    DateTime?
+  lastRunOk    Boolean?
+  lastRunError String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 // Append-only send-attempt log per appointment, so a reminder is never sent

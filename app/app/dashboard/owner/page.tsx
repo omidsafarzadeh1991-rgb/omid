@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireOwner } from "@/lib/dal";
 import { listSecurityLog } from "@/lib/security-log";
 import { listBackups, getSystemHealth } from "@/lib/backup";
@@ -8,9 +9,14 @@ export const dynamic = "force-dynamic";
 const EVENT_LABELS: Record<string, string> = {
   LOGIN_SUCCESS: "ورود موفق",
   LOGIN_FAILED: "تلاش ورود ناموفق",
+  LOGOUT: "خروج از حساب",
   BOT_TOKEN_UPDATED: "تغییر توکن بات",
   SMS_SETTINGS_UPDATED: "تغییر تنظیمات پیامک",
   BACKUP_CREATED: "ساخت بک‌آپ",
+  OWNER_PASSWORD_RECOVERED: "بازیابی اضطراری رمز مالک",
+  OFFSITE_BACKUP_SETTINGS_UPDATED: "تغییر تنظیمات بک‌آپ آفسایت",
+  OFFSITE_BACKUP_SUCCEEDED: "بک‌آپ آفسایت موفق",
+  OFFSITE_BACKUP_FAILED: "بک‌آپ آفسایت ناموفق",
 };
 
 function formatBytes(bytes: number): string {
@@ -64,7 +70,12 @@ export default async function OwnerPage() {
         <h2 className="mb-1 text-lg font-semibold text-slate-900">بک‌آپ دیتابیس</h2>
         <p className="mb-4 text-xs text-slate-500">
           هر بک‌آپ یک کپی کامل و سالم از کل دیتابیس در پوشهٔ <code dir="ltr">backups</code> کنار
-          برنامه می‌سازد. فقط ۷ نسخهٔ آخر نگه داشته می‌شود.
+          برنامه می‌سازد. فقط ۷ نسخهٔ آخر نگه داشته می‌شود. برای ارسال خودکار نسخهٔ رمزنگاری‌شده
+          به یک مقصد خارج از این کامپیوتر (برای اطمینان در برابر خرابی/سرقت/آتش‌سوزی)، به{" "}
+          <Link href="/dashboard/owner/offsite-backup" className="font-medium text-teal-700 hover:underline">
+            صفحهٔ بک‌آپ آفسایت
+          </Link>{" "}
+          بروید.
         </p>
         <BackupButton />
         {backups.length > 0 && (

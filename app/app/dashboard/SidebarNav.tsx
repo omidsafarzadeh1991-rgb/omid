@@ -63,6 +63,15 @@ function ShieldIcon() {
   );
 }
 
+function CloudBackupIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M7 18a4.5 4.5 0 01-.5-9 5.5 5.5 0 0110.6-1.8A4 4 0 0117 15" />
+      <path d="M12 12v7M9.5 16.5L12 19l2.5-2.5" />
+    </svg>
+  );
+}
+
 function KnowledgeIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -112,6 +121,13 @@ const NAV_ITEMS = [
   { href: "/dashboard/staff", label: "کارمندان", Icon: StaffIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/settings", label: "تنظیمات بات‌ها", Icon: SettingsIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/owner", label: "امنیت و بک‌آپ", Icon: ShieldIcon, adminOnly: true, ownerOnly: true },
+  {
+    href: "/dashboard/owner/offsite-backup",
+    label: "بک‌آپ آفسایت",
+    Icon: CloudBackupIcon,
+    adminOnly: true,
+    ownerOnly: true,
+  },
 ];
 
 export default function SidebarNav({

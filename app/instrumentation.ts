@@ -7,6 +7,7 @@ export async function register() {
 
   const { sweepDueReminders } = await import("@/lib/reminders");
   const { runDailyBackupIfDue } = await import("@/lib/backup");
+  const { runOffsiteBackupIfDue } = await import("@/lib/backup-offsite");
   const { pruneExpiredRateLimitBuckets } = await import("@/lib/rate-limit");
 
   setInterval(() => {
@@ -21,6 +22,12 @@ export async function register() {
     });
   }, BACKUP_CHECK_INTERVAL_MS);
 
+  setInterval(() => {
+    runOffsiteBackupIfDue().catch((error: unknown) => {
+      console.error("runOffsiteBackupIfDue failed:", error);
+    });
+  }, BACKUP_CHECK_INTERVAL_MS);
+
   setInterval(pruneExpiredRateLimitBuckets, RATE_LIMIT_PRUNE_INTERVAL_MS);
 
   // Also run once shortly after the server starts, so a fresh install (or a
@@ -28,5 +35,8 @@ export async function register() {
   // instead of waiting up to an hour for the first interval tick.
   runDailyBackupIfDue().catch((error: unknown) => {
     console.error("runDailyBackupIfDue failed:", error);
+  });
+  runOffsiteBackupIfDue().catch((error: unknown) => {
+    console.error("runOffsiteBackupIfDue failed:", error);
   });
 }
