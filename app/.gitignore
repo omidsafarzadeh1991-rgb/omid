@@ -46,6 +46,8 @@ next-env.d.ts
 # database
 /prisma/*.db
 /prisma/*.db-journal
+/prisma/*.db-wal
+/prisma/*.db-shm
 
 # local database backups (raw patient data - never commit)
 /backups/

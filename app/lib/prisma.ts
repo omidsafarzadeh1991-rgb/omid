@@ -16,10 +16,23 @@ function createPrismaClient() {
   // instead of running in parallel. The defaults (maxWait 2s, timeout 5s)
   // are tight enough that a short burst of contention can throw a raw
   // Prisma error instead of the polite "SLOT_TAKEN" rejection.
-  return new PrismaClient({
+  const client = new PrismaClient({
     adapter,
     transactionOptions: { maxWait: 10_000, timeout: 10_000 },
   });
+
+  // WAL mode lets ordinary reads (loading the dashboard, checking free
+  // slots) keep working while a booking write is in progress, instead of
+  // SQLite's default journal mode where a write briefly locks readers out
+  // too - matters once the bot webhook, the manual panel, and the reminder
+  // sweep can all touch the database around the same moment. This setting
+  // is stored inside the database file itself, so this only does real work
+  // once per install; every startup after that it's a harmless no-op.
+  client.$executeRawUnsafe("PRAGMA journal_mode = WAL;").catch((error: unknown) => {
+    console.error("Failed to enable SQLite WAL mode:", error);
+  });
+
+  return client;
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
