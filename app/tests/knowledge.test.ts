@@ -85,6 +85,34 @@ describe("matchFaq", () => {
     expect(match?.answer).toBe("پاسخ پراولویت");
   });
 
+  it("matches a synonym of the admin's keyword without it being typed explicitly", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await createFaqEntry(clinic.id, {
+      category: "PAYMENT",
+      question: "قیمت ویزیت چقدره؟",
+      answer: "ویزیت عمومی ۲۰۰ هزار تومان است",
+      keywords: "قیمت",
+      priority: 50,
+    });
+
+    const match = await matchFaq(clinic.id, "سلام هزینه ویزیت چقدره؟");
+    expect(match?.answer).toBe("ویزیت عمومی ۲۰۰ هزار تومان است");
+  });
+
+  it("does not let synonym expansion match an unrelated keyword", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await createFaqEntry(clinic.id, {
+      category: "ADDRESS",
+      question: "آدرس کجاست؟",
+      answer: "خیابان ولیعصر",
+      keywords: "آدرس",
+      priority: 50,
+    });
+
+    const match = await matchFaq(clinic.id, "هزینه ویزیت چقدره؟");
+    expect(match).toBeNull();
+  });
+
   it("scopes matches to the given clinic only", async () => {
     const { clinic: clinicA } = await createTestClinicWithDoctor();
     const { clinic: clinicB } = await createTestClinicWithDoctor();

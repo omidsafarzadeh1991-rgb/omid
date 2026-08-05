@@ -26,11 +26,38 @@ function splitKeywords(keywords: string): string[] {
     .filter(Boolean);
 }
 
+// Shared, clinic-independent synonym groups so an admin who only types
+// "قیمت" as a keyword also catches "هزینه"/"تعرفه" without listing every
+// variant by hand. Deliberately a small static list, not a synonym-manager
+// UI or embeddings - if it ever stops being enough, that's the signal to
+// build one.
+const SYNONYM_GROUPS: readonly string[][] = [
+  ["قیمت", "هزینه", "تعرفه", "مبلغ", "نرخ"],
+  ["آدرس", "نشانی", "لوکیشن", "موقعیت"],
+  ["ساعت کاری", "ساعات کاری", "زمان کاری"],
+  ["پارکینگ", "جای پارک", "پارک ماشین"],
+  ["بیمه", "بیمه تکمیلی", "طرف قرارداد"],
+];
+
+const synonymsByTerm = new Map<string, string[]>();
+for (const group of SYNONYM_GROUPS) {
+  const normalizedGroup = group.map(normalizeText);
+  for (const term of normalizedGroup) {
+    synonymsByTerm.set(term, normalizedGroup);
+  }
+}
+
+/** Every spelling that should count as the same keyword, including itself. */
+function keywordVariants(normalizedKeyword: string): string[] {
+  return synonymsByTerm.get(normalizedKeyword) ?? [normalizedKeyword];
+}
+
 /**
  * Finds the best-matching active FAQ for an incoming message, purely by
- * keyword overlap - no AI call involved. The entry with the most matched
- * keywords wins; ties break by the admin-set priority (higher first), then
- * by creation order for stability.
+ * keyword overlap (expanded through the synonym groups above) - no AI call
+ * involved. The entry with the most matched keywords wins; ties break by
+ * the admin-set priority (higher first), then by creation order for
+ * stability.
  */
 export async function matchFaq(clinicId: string, userText: string) {
   const entries = await prisma.faqEntry.findMany({
@@ -45,7 +72,9 @@ export async function matchFaq(clinicId: string, userText: string) {
 
   for (const entry of entries) {
     const keywords = splitKeywords(entry.keywords);
-    const matchCount = keywords.filter((keyword) => normalizedText.includes(keyword)).length;
+    const matchCount = keywords.filter((keyword) =>
+      keywordVariants(keyword).some((variant) => normalizedText.includes(variant))
+    ).length;
     if (matchCount === 0) continue;
     if (!best || matchCount > best.matchCount) {
       best = { entry, matchCount };

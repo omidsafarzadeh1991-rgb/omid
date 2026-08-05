@@ -5,14 +5,27 @@ import { bookAppointment, cancelAppointment, getSlotsForDay } from "@/lib/bookin
 import { formatSchedules } from "@/lib/weekdays";
 import { formatToman } from "@/lib/format";
 import { matchFaq, getClinicInfo, formatClinicInfoForPrompt } from "@/lib/knowledge";
+import { recordMessageLog } from "@/lib/message-log";
 import type { BotPlatform, ConversationStatus } from "@/generated/prisma/client";
 
 const MODEL = process.env.AI_MODEL || "openai/gpt-4o-mini";
 const BASE_URL = process.env.AI_BASE_URL || "https://openrouter.ai/api/v1";
 const MAX_TOOL_ITERATIONS = 6;
+// The SDK default (10 minutes, 2 retries) would leave a webhook request -
+// and the patient waiting on the other end - hanging far too long if the
+// provider stalls instead of erroring. A bounded timeout still lets the
+// existing try/catch in each webhook route turn a stuck provider into the
+// same polite Persian fallback message used for any other AI failure.
+const AI_TIMEOUT_MS = 20_000;
+const AI_MAX_RETRIES = 1;
 
-function getClient(): OpenAI {
-  return new OpenAI({ apiKey: process.env.AI_API_KEY, baseURL: BASE_URL });
+export function getClient(): OpenAI {
+  return new OpenAI({
+    apiKey: process.env.AI_API_KEY,
+    baseURL: BASE_URL,
+    timeout: AI_TIMEOUT_MS,
+    maxRetries: AI_MAX_RETRIES,
+  });
 }
 
 const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
@@ -341,6 +354,29 @@ export type AssistantTurnInput = {
 
 type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
 
+// Bounds how much of a long-lived chat thread (the same patient booking and
+// cancelling over many months, all in one Telegram/Bale chat) gets sent to -
+// and paid for at - the AI on every new message.
+export const MAX_HISTORY_MESSAGES = 20;
+
+/**
+ * Drops old turns once history grows past the cap, always cutting at a
+ * "user" message boundary so a tool_calls/tool-result pair from the same
+ * turn is never split apart - every OpenAI-compatible API rejects a "tool"
+ * message that doesn't immediately follow the assistant message that
+ * requested it.
+ */
+function trimHistory(history: ChatMessage[]): ChatMessage[] {
+  if (history.length <= MAX_HISTORY_MESSAGES) return history;
+
+  for (let i = history.length - MAX_HISTORY_MESSAGES; i < history.length; i++) {
+    if (history[i].role === "user") {
+      return history.slice(i);
+    }
+  }
+  return history;
+}
+
 /**
  * Runs one full assistant turn for an incoming chat message: loads this
  * chat's history, lets the model use tools (all reads/writes go through
@@ -351,6 +387,8 @@ type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
  * one specific AI company.
  */
 export async function runAssistantTurn(input: AssistantTurnInput): Promise<string> {
+  const turnStart = Date.now();
+
   const conversation = await prisma.botConversation.upsert({
     where: {
       clinicId_platform_externalChatId: {
@@ -368,10 +406,13 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
     update: {},
   });
 
-  const history: ChatMessage[] = JSON.parse(conversation.history);
+  const history: ChatMessage[] = trimHistory(JSON.parse(conversation.history));
   history.push({ role: "user", content: input.userText });
 
   let replyText = "";
+  let resolution: "FAQ" | "AI" = "FAQ";
+  let promptTokens = 0;
+  let completionTokens = 0;
 
   // Every successful turn ends the conversation resting in one of these
   // states, which also naturally reopens anything staff had marked closed/
@@ -389,6 +430,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
     replyText = faqMatch.answer;
     history.push({ role: "assistant", content: replyText } as ChatMessage);
   } else {
+    resolution = "AI";
     const client = getClient();
     const doctorsSnapshot = await fetchDoctorsSnapshot(input.clinicId);
     const clinicInfo = await getClinicInfo(input.clinicId);
@@ -406,6 +448,9 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
         messages: [{ role: "system", content: system }, ...history],
         tools: TOOLS,
       });
+
+      promptTokens += response.usage?.prompt_tokens ?? 0;
+      completionTokens += response.usage?.completion_tokens ?? 0;
 
       const message = response.choices[0].message;
       history.push({
@@ -485,6 +530,14 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
       },
     });
   }
+
+  await recordMessageLog({
+    clinicId: input.clinicId,
+    platform: input.platform,
+    resolution,
+    responseMs: Date.now() - turnStart,
+    ...(resolution === "AI" ? { promptTokens, completionTokens } : {}),
+  });
 
   return replyText || "متوجه نشدم، می‌شود دوباره توضیح دهید؟";
 }

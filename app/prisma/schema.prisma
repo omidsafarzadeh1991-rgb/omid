@@ -68,6 +68,11 @@ enum BotPlatform {
   BALE
 }
 
+enum MessageResolution {
+  FAQ
+  AI
+}
+
 enum ConversationStatus {
   NEW
   IN_REVIEW
@@ -108,6 +113,7 @@ model Clinic {
   faqEntries  FaqEntry[]
   clinicInfo  ClinicInfo?
   waitlistEntries Waitlist[]
+  messageLogs MessageLog[]
 }
 
 // Append-only security/audit trail, visible only to OWNER.
@@ -420,6 +426,26 @@ model AppointmentLog {
   // over years of daily use, instead of scanning every row for the clinic.
   @@index([clinicId, startTime])
   @@index([clinicId, action, createdAt])
+}
+
+// One row per incoming bot message, recording which layer answered it and
+// (for AI answers) how many tokens it cost - purely for the "how much of
+// this could become a free FAQ instead" report at app/dashboard/ai-usage.
+// Never read by the assistant itself, so a failure to write here must never
+// block a reply (see lib/message-log.ts).
+model MessageLog {
+  id               String            @id @default(cuid())
+  clinicId         String
+  clinic           Clinic            @relation(fields: [clinicId], references: [id])
+  platform         BotPlatform
+  resolution       MessageResolution
+  responseMs       Int
+  promptTokens     Int?
+  completionTokens Int?
+  createdAt        DateTime          @default(now())
+
+  @@index([clinicId, createdAt])
+  @@index([clinicId, resolution, createdAt])
 }
 
 // A patient waiting for a day that has no free slot right now. Purely a

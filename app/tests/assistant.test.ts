@@ -4,10 +4,14 @@ import { bookAppointment } from "@/lib/booking";
 import { createFaqEntry, saveClinicInfo } from "@/lib/knowledge";
 import { createTestClinicWithDoctor } from "./helpers";
 
-const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
+const { mockCreate, capturedClientConfigs } = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  capturedClientConfigs: [] as Record<string, unknown>[],
+}));
 
 vi.mock("openai", () => ({
-  default: vi.fn().mockImplementation(function OpenAIMock() {
+  default: vi.fn().mockImplementation(function OpenAIMock(config: Record<string, unknown>) {
+    capturedClientConfigs.push(config);
     return { chat: { completions: { create: mockCreate } } };
   }),
 }));
@@ -57,6 +61,7 @@ function hasToolResult(messages: { role: string }[]): boolean {
 describe("runAssistantTurn", () => {
   beforeEach(() => {
     mockCreate.mockReset();
+    capturedClientConfigs.length = 0;
   });
 
   it("books an appointment via the book_appointment tool, through the same atomic booking engine", async () => {
@@ -560,5 +565,118 @@ describe("runAssistantTurn", () => {
 
     const call = mockCreate.mock.calls[0][0] as { messages: { content: string }[] };
     expect(call.messages[0].content).toContain("خیابان آزادی، پلاک ۵");
+  });
+
+  it("sets a bounded timeout and retry count on the AI client so a hung provider can't stall the webhook forever", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("سلام!"));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "timeout-1",
+      userText: "سلام",
+    });
+
+    const config = capturedClientConfigs.at(-1);
+    expect(config?.timeout).toBe(20_000);
+    expect(config?.maxRetries).toBe(1);
+  });
+
+  it("keeps only the most recent messages once history grows past the cap, cutting at a user-message boundary", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+
+    const oldHistory = [];
+    for (let i = 0; i < 15; i++) {
+      oldHistory.push({ role: "user", content: `سوال قدیمی ${i}` });
+      oldHistory.push({ role: "assistant", content: `پاسخ قدیمی ${i}` });
+    }
+    await prisma.botConversation.create({
+      data: {
+        clinicId: clinic.id,
+        platform: "TELEGRAM",
+        externalChatId: "long-history",
+        history: JSON.stringify(oldHistory),
+      },
+    });
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("سلام دوباره!"));
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "long-history",
+      userText: "یک سوال جدید",
+    });
+
+    const conversation = await getConversation(clinic.id, "long-history");
+    const history = JSON.parse(conversation!.history) as { role: string; content: string }[];
+
+    expect(history.length).toBeLessThan(oldHistory.length + 1);
+    expect(history[0].role).toBe("user");
+    expect(history.at(-1)?.content).toBe("سلام دوباره!");
+    // The newest question must always survive the trim.
+    expect(history.some((m) => m.content === "یک سوال جدید")).toBe(true);
+  });
+
+  it("records a FAQ-resolved message log with no token counts", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await createFaqEntry(clinic.id, {
+      category: "ADDRESS",
+      question: "آدرس کجاست؟",
+      answer: "خیابان ولیعصر",
+      keywords: "آدرس",
+      priority: 50,
+    });
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "log-faq-1",
+      userText: "آدرس کجاست؟",
+    });
+
+    const logs = await prisma.messageLog.findMany({ where: { clinicId: clinic.id } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].resolution).toBe("FAQ");
+    expect(logs[0].promptTokens).toBeNull();
+    expect(logs[0].completionTokens).toBeNull();
+    expect(logs[0].responseMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("records an AI-resolved message log with tokens summed across every tool-call round-trip", async () => {
+    const { clinic, doctor } = await createTestClinicWithDoctor();
+    const startTime = nextMonday9am();
+
+    mockCreate.mockImplementationOnce(async () => ({
+      ...toolCallResponse("book_appointment", {
+        doctorId: doctor.id,
+        date: isoDate(startTime),
+        time: "09:00",
+        patientName: "مریم رضایی",
+        patientPhone: "09121230000",
+      }),
+      usage: { prompt_tokens: 100, completion_tokens: 20 },
+    }));
+    mockCreate.mockImplementationOnce(async () => ({
+      ...endTurnResponse("نوبت شما ثبت شد."),
+      usage: { prompt_tokens: 150, completion_tokens: 10 },
+    }));
+
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "log-ai-1",
+      userText: "می‌خوام نوبت بگیرم",
+    });
+
+    const logs = await prisma.messageLog.findMany({ where: { clinicId: clinic.id } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].resolution).toBe("AI");
+    expect(logs[0].promptTokens).toBe(250);
+    expect(logs[0].completionTokens).toBe(30);
   });
 });

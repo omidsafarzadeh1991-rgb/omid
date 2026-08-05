@@ -93,6 +93,14 @@ function AppointmentsIcon() {
   );
 }
 
+function AiUsageIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 19V10M10 19V5M16 19v-6M4 19h16" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { href: "/dashboard", label: "داشبورد", Icon: DashboardIcon, adminOnly: false, ownerOnly: false },
   { href: "/dashboard/appointments", label: "نوبت‌ها", Icon: AppointmentsIcon, adminOnly: false, ownerOnly: false },
@@ -100,6 +108,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/conversations", label: "مکالمات", Icon: ConversationsIcon, adminOnly: false, ownerOnly: false },
   { href: "/dashboard/doctors", label: "پزشکان", Icon: DoctorIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/knowledge", label: "مرکز دانش", Icon: KnowledgeIcon, adminOnly: true, ownerOnly: false },
+  { href: "/dashboard/ai-usage", label: "هزینهٔ هوش مصنوعی", Icon: AiUsageIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/staff", label: "کارمندان", Icon: StaffIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/settings", label: "تنظیمات بات‌ها", Icon: SettingsIcon, adminOnly: true, ownerOnly: false },
   { href: "/dashboard/owner", label: "امنیت و بک‌آپ", Icon: ShieldIcon, adminOnly: true, ownerOnly: true },
