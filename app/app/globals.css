@@ -381,6 +381,42 @@ body {
   color: #9aa1ad;
 }
 
+/* Rendered markdown from docs/content (Help Center articles, product FAQ). */
+.doc-content h2 {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.doc-content h2:first-child {
+  margin-top: 0;
+}
+.doc-content p {
+  margin: 0 0 0.9rem;
+  line-height: 1.9;
+}
+.doc-content ul,
+.doc-content ol {
+  margin: 0 0 0.9rem;
+  padding-inline-start: 1.4rem;
+}
+.doc-content li {
+  margin-bottom: 0.4rem;
+  line-height: 1.8;
+}
+.doc-content strong {
+  color: #1e293b;
+  font-weight: 700;
+}
+.doc-content code {
+  background: var(--canvas);
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.9em;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 /* ---- Ghost button: quiet, for secondary actions on the new screens ---- */
 
 .btn-ghost {

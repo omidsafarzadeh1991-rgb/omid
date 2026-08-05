@@ -30,5 +30,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // scripts/ (PDF-generation tooling) depends on playwright/pdf-lib, which
+  // are intentionally never installed as part of the app - see
+  // scripts/docs/generate-pdfs.ts for why. Excluded so `tsc`/`next build`
+  // never fail over modules that aren't supposed to be present.
+  "exclude": ["node_modules", "scripts"]
 }
