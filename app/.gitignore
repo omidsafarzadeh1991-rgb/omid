@@ -54,3 +54,8 @@ next-env.d.ts
 
 # uploaded staff profile pictures (personal data - never commit)
 /public/uploads/
+
+# NSSM Windows service log files + downloaded service tools (per-install, never commit)
+/logs/
+nssm.exe
+cloudflared.exe

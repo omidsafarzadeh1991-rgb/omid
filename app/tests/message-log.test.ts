@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getAiUsageStats, recordMessageLog } from "@/lib/message-log";
+import { getAiHealthStatus, getAiUsageStats, recordMessageLog } from "@/lib/message-log";
 import { createTestClinicWithDoctor } from "./helpers";
 
 describe("message-log", () => {
@@ -69,5 +69,51 @@ describe("message-log", () => {
     const stats = await getAiUsageStats(clinic.id, new Date(0));
     expect(stats.avgResponseMsFaq).toBeNull();
     expect(stats.avgResponseMsAi).toBeNull();
+  });
+
+  it("counts AI_ERROR logs toward aiCount/aiErrorCount for the usage dashboard", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await recordMessageLog({ clinicId: clinic.id, platform: "TELEGRAM", resolution: "AI_ERROR", responseMs: 20000 });
+    const stats = await getAiUsageStats(clinic.id, new Date(0));
+    expect(stats.aiCount).toBe(1);
+    expect(stats.aiErrorCount).toBe(1);
+  });
+});
+
+describe("getAiHealthStatus", () => {
+  it("returns unknown when there is no recent AI-path traffic", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    expect(await getAiHealthStatus(clinic.id)).toBe("unknown");
+  });
+
+  it("returns healthy when recent AI attempts mostly succeeded", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await recordMessageLog({ clinicId: clinic.id, platform: "TELEGRAM", resolution: "AI", responseMs: 500 });
+    await recordMessageLog({ clinicId: clinic.id, platform: "TELEGRAM", resolution: "AI", responseMs: 500 });
+    await recordMessageLog({ clinicId: clinic.id, platform: "TELEGRAM", resolution: "AI_ERROR", responseMs: 500 });
+    expect(await getAiHealthStatus(clinic.id)).toBe("healthy");
+  });
+
+  it("returns degraded when most recent AI attempts failed", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    await recordMessageLog({ clinicId: clinic.id, platform: "TELEGRAM", resolution: "AI_ERROR", responseMs: 500 });
+    await recordMessageLog({ clinicId: clinic.id, platform: "TELEGRAM", resolution: "AI_ERROR", responseMs: 500 });
+    await recordMessageLog({ clinicId: clinic.id, platform: "TELEGRAM", resolution: "AI", responseMs: 500 });
+    expect(await getAiHealthStatus(clinic.id)).toBe("degraded");
+  });
+
+  it("ignores AI-path logs from outside the requested time window", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.messageLog.create({
+      data: {
+        clinicId: clinic.id,
+        platform: "TELEGRAM",
+        resolution: "AI_ERROR",
+        responseMs: 500,
+        createdAt: new Date(Date.now() - 60 * 60_000),
+      },
+    });
+    expect(await getAiHealthStatus(clinic.id, 30)).toBe("unknown");
   });
 });

@@ -410,7 +410,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
   history.push({ role: "user", content: input.userText });
 
   let replyText = "";
-  let resolution: "FAQ" | "AI" = "FAQ";
+  let resolution: "FAQ" | "AI" | "AI_ERROR" = "FAQ";
   let promptTokens = 0;
   let completionTokens = 0;
 
@@ -431,6 +431,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
     history.push({ role: "assistant", content: replyText } as ChatMessage);
   } else {
     resolution = "AI";
+    try {
     const client = getClient();
     const doctorsSnapshot = await fetchDoctorsSnapshot(input.clinicId);
     const clinicInfo = await getClinicInfo(input.clinicId);
@@ -506,6 +507,17 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
         }
       }
     }
+    } catch (error) {
+      // Centralizing this here (rather than in each webhook route) means
+      // both platforms show the same polite message, and - unlike letting
+      // the error propagate - the turn still finishes normally: history is
+      // saved, the conversation record updates, and the failure is logged
+      // as AI_ERROR so the dashboard's connection-status card can surface it.
+      console.error("AI call failed:", error);
+      resolution = "AI_ERROR";
+      replyText = "متاسفانه یک مشکل فنی پیش آمد. لطفاً چند لحظه دیگر دوباره پیام دهید یا مستقیم با مطب تماس بگیرید.";
+      history.push({ role: "assistant", content: replyText } as ChatMessage);
+    }
   }
 
   await prisma.botConversation.update({
@@ -536,7 +548,7 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<strin
     platform: input.platform,
     resolution,
     responseMs: Date.now() - turnStart,
-    ...(resolution === "AI" ? { promptTokens, completionTokens } : {}),
+    ...(resolution !== "FAQ" ? { promptTokens, completionTokens } : {}),
   });
 
   return replyText || "متوجه نشدم، می‌شود دوباره توضیح دهید؟";

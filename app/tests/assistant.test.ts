@@ -679,4 +679,55 @@ describe("runAssistantTurn", () => {
     expect(logs[0].promptTokens).toBe(250);
     expect(logs[0].completionTokens).toBe(30);
   });
+
+  it("returns the polite fallback (never throws) and logs AI_ERROR when the AI call fails", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    mockCreate.mockImplementationOnce(async () => {
+      throw new Error("upstream timeout");
+    });
+
+    const reply = await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "ai-error-1",
+      userText: "سلام",
+    });
+
+    expect(reply).toContain("مشکل فنی");
+
+    const conversation = await getConversation(clinic.id, "ai-error-1");
+    expect(conversation).not.toBeNull();
+    const history = JSON.parse(conversation!.history);
+    expect(history.at(-1)).toMatchObject({ role: "assistant", content: reply });
+
+    const logs = await prisma.messageLog.findMany({ where: { clinicId: clinic.id } });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].resolution).toBe("AI_ERROR");
+  });
+
+  it("still lets the patient continue the conversation normally after an AI failure on the previous turn", async () => {
+    const { clinic } = await createTestClinicWithDoctor();
+    mockCreate.mockImplementationOnce(async () => {
+      throw new Error("upstream timeout");
+    });
+    await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "ai-error-2",
+      userText: "سلام",
+    });
+
+    mockCreate.mockImplementationOnce(async () => endTurnResponse("چطور می‌توانم کمکتان کنم؟"));
+    const reply = await runAssistantTurn({
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      platform: "TELEGRAM",
+      externalChatId: "ai-error-2",
+      userText: "نوبت می‌خوام",
+    });
+
+    expect(reply).toBe("چطور می‌توانم کمکتان کنم؟");
+  });
 });

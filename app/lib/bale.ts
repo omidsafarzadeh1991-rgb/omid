@@ -32,3 +32,36 @@ export async function sendBaleMessage(
     throw new Error(`Bale sendMessage failed (${response.status}): ${body}`);
   }
 }
+
+export type WebhookHealth =
+  | { status: "connected" }
+  | { status: "error"; message: string }
+  | { status: "unknown" };
+
+/**
+ * Mirrors getTelegramWebhookHealth. Bale's support for getWebhookInfo isn't
+ * independently confirmed the way sendMessage's shape is (see the note at
+ * the top of this file), so any unexpected response shape or failure here
+ * falls back to "unknown" rather than risking a false "error" reading.
+ */
+export async function getBaleWebhookHealth(botToken: string): Promise<WebhookHealth> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${BALE_API_BASE}/bot${botToken}/getWebhookInfo`, {
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    if (!response.ok) return { status: "unknown" };
+    const data = await response.json();
+    if (!data.ok) return { status: "unknown" };
+
+    const info = data.result as { last_error_date?: number; last_error_message?: string };
+    if (info.last_error_date) {
+      return { status: "error", message: info.last_error_message ?? "خطای نامشخص" };
+    }
+    return { status: "connected" };
+  } catch {
+    return { status: "unknown" };
+  }
+}

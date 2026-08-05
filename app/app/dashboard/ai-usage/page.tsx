@@ -82,6 +82,12 @@ export default async function AiUsagePage() {
             <p className="eyebrow mt-2">مجموع توکن مصرفی AI</p>
           </div>
         </div>
+        {last30Days.aiErrorCount > 0 && (
+          <p className="mt-4 text-sm text-amber-700">
+            {last30Days.aiErrorCount} پیام در این بازه با مشکل فنی هوش مصنوعی مواجه شده و پاسخ جایگزین گرفته‌اند —
+            وضعیت لحظه‌ای را در داشبورد اصلی («وضعیت اتصال بات‌ها و هوش مصنوعی») ببینید.
+          </p>
+        )}
         {hasCostRate ? (
           <p className="mt-4 text-sm text-slate-500">
             تخمین هزینهٔ ۳۰ روز اخیر بر اساس نرخی که در تنظیمات وارد کرده‌اید:{" "}

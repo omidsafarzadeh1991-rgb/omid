@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { requireSession } from "@/lib/dal";
 import { prisma } from "@/lib/prisma";
 import { canManageClinic } from "@/lib/roles";
@@ -6,6 +7,8 @@ import NewAppointmentCard from "./NewAppointmentCard";
 import ChannelDonut from "./ChannelDonut";
 import UpcomingList from "./UpcomingList";
 import EmptyState from "./EmptyState";
+import ConnectionStatusCard from "./ConnectionStatusCard";
+import ConnectionStatusSkeleton from "./ConnectionStatusSkeleton";
 
 function greeting(hour: number): string {
   if (hour < 5) return "شب بخیر";
@@ -142,6 +145,12 @@ export default async function DashboardPage() {
             rows={bookedBySource.map((r) => ({ source: r.source, count: r._count._all }))}
           />
         </section>
+      )}
+
+      {isAdmin && (
+        <Suspense fallback={<ConnectionStatusSkeleton />}>
+          <ConnectionStatusCard clinicId={session.clinicId} />
+        </Suspense>
       )}
 
       <section className="surface animate-in p-7">

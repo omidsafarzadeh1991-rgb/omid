@@ -104,6 +104,18 @@ export async function verifyBaleWebhook(
   return { botToken: decryptSecret(row.encryptedToken) };
 }
 
+/** Decrypted token for a clinic's bot, for server-side calls that aren't a webhook request (e.g. the connection-status check). */
+export async function getDecryptedBotToken(
+  clinicId: string,
+  platform: BotPlatform
+): Promise<string | null> {
+  const row = await prisma.botIntegration.findUnique({
+    where: { clinicId_platform: { clinicId, platform } },
+  });
+  if (!row) return null;
+  return decryptSecret(row.encryptedToken);
+}
+
 export async function setBotEnabled(
   clinicId: string,
   platform: BotPlatform,

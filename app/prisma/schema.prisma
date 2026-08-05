@@ -30,6 +30,7 @@ enum SecurityEventType {
   BOT_TOKEN_UPDATED
   SMS_SETTINGS_UPDATED
   BACKUP_CREATED
+  OWNER_PASSWORD_RECOVERED
 }
 
 enum SmsReminderType {
@@ -71,6 +72,7 @@ enum BotPlatform {
 enum MessageResolution {
   FAQ
   AI
+  AI_ERROR
 }
 
 enum ConversationStatus {

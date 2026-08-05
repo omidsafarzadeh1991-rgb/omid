@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone maintainer/ops scripts (PDF generation, emergency
+    // recovery) - deliberately plain CommonJS/Node, not part of the app
+    // bundle. See tsconfig.json's exclude for the same reasoning.
+    "scripts/**",
   ]),
 ]);
 
