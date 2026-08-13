@@ -38,7 +38,7 @@ export function Hero() {
         </FadeIn>
 
         <FadeIn delay={0.1}>
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border bg-white">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border bg-card">
             <Image
               src="/images/hero-lab.svg"
               alt="فضای نمونه آزمایشگاه تخصصی ترنج"

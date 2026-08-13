@@ -5,37 +5,40 @@
  * Design tokens for the Torenj lab site (spec §2/§3).
  * One palette, no dark mode — a calm, single-committed "premium medical"
  * look was chosen over a light/dark toggle nobody asked for.
+ *
+ * Base surface is a warm gold/ivory instead of plain white, with the brand
+ * blue kept for primary actions/icons for contrast against the gold.
  */
 :root {
   --radius: 0.625rem;
 
-  --background: #ffffff;
-  --foreground: #0f172a; /* slate-900 */
+  --background: #f7efdc; /* warm gold-ivory */
+  --foreground: #2b2410; /* warm near-black, keeps contrast on gold */
 
-  --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card: #fbf5e6; /* lighter than background so cards still lift off the page */
+  --card-foreground: #2b2410;
 
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover: #fbf5e6;
+  --popover-foreground: #2b2410;
 
   --primary: #0ea5e9; /* brand */
   --primary-foreground: #ffffff;
 
-  --secondary: #f1f5f9; /* slate-100 */
-  --secondary-foreground: #0f172a;
+  --secondary: #efe0b3; /* gold-100 */
+  --secondary-foreground: #2b2410;
 
-  --muted: #f8fafc; /* slate-50 */
-  --muted-foreground: #64748b; /* slate-500 */
+  --muted: #f2e6c4; /* gold-50 */
+  --muted-foreground: #7a6a3f;
 
-  --accent: #e0f2fe; /* sky-100 */
+  --accent: #e0f2fe; /* sky-100 — kept blue so icon badges read against the gold */
   --accent-foreground: #0c4a6e;
 
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
 
-  --border: #e2e8f0; /* slate-200 */
-  --input: #e2e8f0;
-  --ring: #7dd3fc; /* sky-300, focus ring */
+  --border: #e3d19c; /* gold-200 */
+  --input: #e3d19c;
+  --ring: #d4af37; /* metallic gold, focus ring */
 }
 
 @theme inline {
