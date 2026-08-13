@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="تصویر نمونه متخصص">
+  <rect width="200" height="200" rx="20" fill="#E0F2FE"/>
+  <circle cx="100" cy="80" r="34" fill="none" stroke="#0EA5E9" stroke-width="6"/>
+  <path d="M40 168c8-38 40-58 60-58s52 20 60 58" fill="none" stroke="#0EA5E9" stroke-width="6" stroke-linecap="round"/>
+</svg>

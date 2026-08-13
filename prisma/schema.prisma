@@ -1,0 +1,72 @@
+// Prisma schema for the Torenj specialty lab website.
+// See https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model Doctor {
+  id        String   @id @default(cuid())
+  name      String
+  specialty String
+  image     String
+  bio       String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  title       String
+  /// URL-safe identifier used for future deep-linking / filtering.
+  slug        String   @unique
+  description String
+  category    String
+  /// Human-readable approximate turnaround, e.g. "۲۴ ساعت" — kept as free text
+  /// because labs quote result times descriptively, not as a fixed duration.
+  resultTime  String
+  /// Price in Toman. Null means "call for price" (some tests are quoted case by case).
+  price       Int?
+  createdAt   DateTime @default(now())
+
+  appointments Appointment[]
+
+  @@index([category])
+}
+
+model Appointment {
+  id     String @id @default(cuid())
+  fullName String
+  phone    String
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  /// Requested sampling day, stored at UTC midnight (date-only semantics).
+  date DateTime @db.Date
+  /// Requested time slot, e.g. "09:30". Kept as a fixed string because
+  /// availability is not yet backed by a real scheduling engine (spec §19) —
+  /// the API only records what the visitor asked for, staff confirm it manually.
+  time String
+
+  status    AppointmentStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+
+  // Prevents the exact same person from double-submitting the same slot.
+  @@unique([phone, serviceId, date, time], name: "uniqueBookingRequest")
+  @@index([phone])
+  @@index([status])
+  @@index([date])
+}

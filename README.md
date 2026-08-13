@@ -1,96 +1,74 @@
-> **Note:** This repository contains Anthropic's implementation of skills for Claude. For information about the Agent Skills standard, see [agentskills.io](http://agentskills.io).
+# آزمایشگاه تخصصی ترنج — وب‌سایت
 
-[![skills.sh](https://skills.sh/b/anthropics/skills)](https://skills.sh/anthropics/skills)
+وب‌سایت رسمی (نمونه) آزمایشگاه تخصصی ترنج: معرفی آزمایشگاه، نمایش و جست‌وجوی
+خدمات تشخیصی، و ثبت درخواست رزرو نوبت نمونه‌گیری.
 
-# Skills
-Skills are folders of instructions, scripts, and resources that Claude loads dynamically to improve performance on specialized tasks. Skills teach Claude how to complete specific tasks in a repeatable way, whether that's creating documents with your company's brand guidelines, analyzing data using your organization's specific workflows, or automating personal tasks.
+> تمام نام‌ها، قیمت‌ها، بیوگرافی متخصصان و نظرات مراجعان در این پروژه **داده
+> نمونه** هستند و نباید به‌عنوان اطلاعات واقعی یا تأییدشده تلقی شوند.
 
-For more information, check out:
-- [What are skills?](https://support.claude.com/en/articles/12512176-what-are-skills)
-- [Using skills in Claude](https://support.claude.com/en/articles/12512180-using-skills-in-claude)
-- [How to create custom skills](https://support.claude.com/en/articles/12512198-creating-custom-skills)
-- [Equipping agents for the real world with Agent Skills](https://anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
+## پشته فنی
 
-# About This Repository
+- **Next.js 15** (App Router, Turbopack) + TypeScript
+- **Tailwind CSS v4** + کامپوننت‌های دستی هم‌سو با shadcn/ui (بر پایه Radix UI)
+- **Prisma ORM** + **PostgreSQL**
+- **Zod** برای اعتبارسنجی سمت کلاینت و سرور
+- **React Hook Form** برای فرم رزرو نوبت
+- **Framer Motion** برای انیمیشن‌های بسیار ملایم
+- **lucide-react** برای آیکن‌ها
 
-This repository contains skills that demonstrate what's possible with Claude's skills system. These skills range from creative applications (art, music, design) to technical tasks (testing web apps, MCP server generation) to enterprise workflows (communications, branding, etc.).
+## راه‌اندازی محلی
 
-Each skill is self-contained in its own folder with a `SKILL.md` file containing the instructions and metadata that Claude uses. Browse through these skills to get inspiration for your own skills or to understand different patterns and approaches.
-
-Many skills in this repo are open source (Apache 2.0). We've also included the document creation & editing skills that power [Claude's document capabilities](https://www.anthropic.com/news/create-files) under the hood in the [`skills/docx`](./skills/docx), [`skills/pdf`](./skills/pdf), [`skills/pptx`](./skills/pptx), and [`skills/xlsx`](./skills/xlsx) subfolders. These are source-available, not open source, but we wanted to share these with developers as a reference for more complex skills that are actively used in a production AI application.
-
-## Disclaimer
-
-**These skills are provided for demonstration and educational purposes only.** While some of these capabilities may be available in Claude, the implementations and behaviors you receive from Claude may differ from what is shown in these skills. These skills are meant to illustrate patterns and possibilities. Always test skills thoroughly in your own environment before relying on them for critical tasks.
-
-# Skill Sets
-- [./skills](./skills): Skill examples for Creative & Design, Development & Technical, Enterprise & Communication, and Document Skills
-- [./spec](./spec): The Agent Skills specification
-- [./template](./template): Skill template
-
-# Try in Claude Code, Claude.ai, and the API
-
-## Claude Code
-You can register this repository as a Claude Code Plugin marketplace by running the following command in Claude Code:
-```
-/plugin marketplace add anthropics/skills
+```bash
+npm install
+cp .env.example .env   # مقدار DATABASE_URL را با یک PostgreSQL واقعی پر کنید
+npx prisma db push     # ساخت جداول از روی schema.prisma
+npm run db:seed        # درج داده‌های نمونه (۵ متخصص، ۸ خدمت)
+npm run dev
 ```
 
-Then, to install a specific set of skills:
-1. Select `Browse and install plugins`
-2. Select `anthropic-agent-skills`
-3. Select `document-skills` or `example-skills`
-4. Select `Install now`
+سایت روی `http://localhost:3000` بالا می‌آید.
 
-Alternatively, directly install either Plugin via:
+### اسکریپت‌های مهم
+
+| اسکریپت           | کاربرد                                   |
+| ----------------- | ----------------------------------------- |
+| `npm run dev`     | اجرای محیط توسعه (Turbopack)              |
+| `npm run build`   | ساخت نسخه production                      |
+| `npm run start`   | اجرای نسخه production ساخته‌شده           |
+| `npm run lint`    | بررسی ESLint                              |
+| `npm run db:seed` | پر کردن دیتابیس با داده‌های نمونه         |
+| `npm run db:push` | همگام‌سازی schema با دیتابیس (بدون migration) |
+| `npm run db:studio` | باز کردن Prisma Studio                  |
+
+> **نکته Build:** این پروژه با فلگ `--turbopack` روی build/dev تنظیم شده،
+> چون یک باگ شناخته‌شده در builder وبپک نسخه‌ی نصب‌شده‌ی Next.js 15.5.23
+> باعث خطای `InvariantError: Expected clientReferenceManifest to be defined`
+> در prerender صفحاتی می‌شد که کامپوننت کلاینت دارند. Turbopack این مشکل را ندارد.
+
+## معماری
+
 ```
-/plugin install document-skills@anthropic-agent-skills
-/plugin install example-skills@anthropic-agent-skills
-```
-
-After installing the plugin, you can use the skill by just mentioning it. For instance, if you install the `document-skills` plugin from the marketplace, you can ask Claude Code to do something like: "Use the PDF skill to extract the form fields from `path/to/some-file.pdf`"
-
-## Claude.ai
-
-These example skills are all already available to paid plans in Claude.ai. 
-
-To use any skill from this repository or upload custom skills, follow the instructions in [Using skills in Claude](https://support.claude.com/en/articles/12512180-using-skills-in-claude#h_a4222fa77b).
-
-## Claude API
-
-You can use Anthropic's pre-built skills, and upload custom skills, via the Claude API. See the [Skills API Quickstart](https://docs.claude.com/en/api/skills-guide#creating-a-skill) for more.
-
-# Creating a Basic Skill
-
-Skills are simple to create - just a folder with a `SKILL.md` file containing YAML frontmatter and instructions. You can use the **template-skill** in this repository as a starting point:
-
-```markdown
----
-name: my-skill-name
-description: A clear description of what this skill does and when to use it
----
-
-# My Skill Name
-
-[Add your instructions here that Claude will follow when this skill is active]
-
-## Examples
-- Example usage 1
-- Example usage 2
-
-## Guidelines
-- Guideline 1
-- Guideline 2
+app/(public)/…   صفحات عمومی سایت (خانه، خدمات، درباره، تیم، رزرو، تماس)
+app/api/…        Route Handlerها (فعلاً فقط POST /api/appointment)
+components/      layout · home · shared · appointment · ui
+lib/             config · validations · prisma · utils · rate-limit · data/*
+prisma/          schema.prisma · seed.ts
 ```
 
-The frontmatter requires only two fields:
-- `name` - A unique identifier for your skill (lowercase, hyphens for spaces)
-- `description` - A complete description of what the skill does and when to use it
+`lib/data/*` تنها لایه‌ای است که مستقیماً با Prisma صحبت می‌کند؛ کامپوننت‌های
+UI همیشه داده را به‌صورت prop دریافت می‌کنند و خودشان fetch نمی‌کنند.
 
-The markdown content below contains the instructions, examples, and guidelines that Claude will follow. For more details, see [How to create custom skills](https://support.claude.com/en/articles/12512198-creating-custom-skills).
+## محدودیت شناخته‌شده: Rate Limiting
 
-# Partner Skills
+`lib/rate-limit.ts` یک rate limiter درون‌حافظه‌ای (in-memory) است که روی یک
+اینستنس Node.js به‌خوبی کار می‌کند اما در استقرارهای چند-اینستنسی/serverless
+تضمین سراسری نمی‌دهد. این پیاده‌سازی صادقانه به همین شکل مستند شده و رابط
+`RateLimiter` طوری طراحی شده که جایگزینی با Redis/Upstash در آینده بدون تغییر
+در API route ممکن باشد.
 
-Skills are a great way to teach Claude how to get better at using specific pieces of software. As we see awesome example skills from partners, we may highlight some of them here:
+## پیش از استقرار واقعی
 
-- **Notion** - [Notion Skills for Claude](https://www.notion.so/notiondevs/Notion-Skills-for-Claude-28da4445d27180c7af1df7d8615723d0)
+- `contactInfo` و `siteConfig` در `lib/config.ts` را با اطلاعات واقعی جایگزین کنید.
+- تصاویر placeholder در `public/images/` (هیرو و آواتار متخصصان) را با تصاویر
+  واقعی جایگزین کنید — ساختار کد نیازی به تغییر ندارد.
+- برای rate limiting سراسری، یک backend واقعی (مثل Upstash Redis) پیاده‌سازی کنید.
